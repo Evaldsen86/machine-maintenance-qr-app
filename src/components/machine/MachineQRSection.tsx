@@ -14,42 +14,41 @@ interface MachineQRSectionProps {
 export default function MachineQRSection({ machineId, machineName }: MachineQRSectionProps) {
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
-
-  useEffect(() => {
-    generateQRCode();
-  }, [machineId]);
 
   const generateQRCode = async () => {
     try {
       setIsLoading(true);
       
-      // Get QR data from Supabase
-      const qrData = await machineService.generateQRCode(machineId);
+      // Create simple QR data
+      const qrData = {
+        id: machineId,
+        name: machineName,
+        url: window.location.href
+      };
       
       // Generate QR code image
       const qrImageUrl = await QRCode.toDataURL(JSON.stringify(qrData), {
         errorCorrectionLevel: 'H',
         margin: 1,
-        width: 300
+        width: 300,
+        type: 'image/png'
       });
       
       setQrImage(qrImageUrl);
-      setRetryCount(0);
+      toast.success('QR code generated successfully');
     } catch (error) {
       console.error('QR generation error:', error);
-      
-      if (retryCount < maxRetries) {
-        setRetryCount(prev => prev + 1);
-        setTimeout(generateQRCode, 1000 * (retryCount + 1));
-      } else {
-        toast.error(ERROR_MESSAGES.QR_CODE_GENERATION_FAILED);
-      }
+      toast.error('Could not generate QR code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (machineId && machineName) {
+      generateQRCode();
+    }
+  }, [machineId, machineName]);
 
   const handlePrint = () => {
     if (!qrImage) return;
@@ -95,6 +94,7 @@ export default function MachineQRSection({ machineId, machineName }: MachineQRSe
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success('QR code downloaded');
   };
 
   const handleShare = async () => {
@@ -124,7 +124,7 @@ export default function MachineQRSection({ machineId, machineName }: MachineQRSe
 
   return (
     <Card className="p-4">
-      <h3 className="text-lg font-semibold mb-4">QR Code</h3>
+      <h3 className="text-lg font-semibold mb-4">QR-kode for {machineName}</h3>
       
       <div className="flex flex-col items-center gap-4">
         {isLoading ? (
@@ -133,17 +133,21 @@ export default function MachineQRSection({ machineId, machineName }: MachineQRSe
           </div>
         ) : qrImage ? (
           <>
-            <img src={qrImage} alt={`QR Code for ${machineName}`} className="max-w-full h-auto" />
+            <img 
+              src={qrImage} 
+              alt={`QR Code for ${machineName}`} 
+              className="max-w-full h-auto border p-2 rounded-lg"
+            />
             <div className="flex gap-2 mt-4">
               <Button onClick={handlePrint} variant="outline">Print</Button>
-              <Button onClick={handleDownload} variant="outline">Download</Button>
+              <Button onClick={handleDownload} variant="outline">Download QR-kode</Button>
               <Button onClick={handleShare} variant="outline">Share</Button>
             </div>
           </>
         ) : (
           <div className="text-center p-4">
-            <p className="text-red-500">Failed to generate QR code</p>
-            <Button onClick={generateQRCode} variant="outline" className="mt-2">Retry</Button>
+            <p className="text-red-500">Kunne ikke generere QR-kode</p>
+            <Button onClick={generateQRCode} variant="outline" className="mt-2">Prøv igen</Button>
           </div>
         )}
       </div>

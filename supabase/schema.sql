@@ -60,58 +60,25 @@ BEFORE UPDATE ON maintenance
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- Create RLS policies
+-- Enable RLS but allow all operations for now
 ALTER TABLE machines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance ENABLE ROW LEVEL SECURITY;
 
--- Allow public read access to machines
-CREATE POLICY "Allow public read access to machines"
-ON machines FOR SELECT
-USING (true);
+-- Allow all operations on machines
+CREATE POLICY "Allow all operations on machines"
+ON machines FOR ALL
+USING (true)
+WITH CHECK (true);
 
--- Allow authenticated users to insert/update/delete machines
-CREATE POLICY "Allow authenticated users to insert machines"
-ON machines FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
+-- Allow all operations on tasks
+CREATE POLICY "Allow all operations on tasks"
+ON tasks FOR ALL
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "Allow authenticated users to update machines"
-ON machines FOR UPDATE
-USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow authenticated users to delete machines"
-ON machines FOR DELETE
-USING (auth.role() = 'authenticated');
-
--- Similar policies for tasks and maintenance
-CREATE POLICY "Allow public read access to tasks"
-ON tasks FOR SELECT
-USING (true);
-
-CREATE POLICY "Allow authenticated users to insert tasks"
-ON tasks FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow authenticated users to update tasks"
-ON tasks FOR UPDATE
-USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow authenticated users to delete tasks"
-ON tasks FOR DELETE
-USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow public read access to maintenance"
-ON maintenance FOR SELECT
-USING (true);
-
-CREATE POLICY "Allow authenticated users to insert maintenance"
-ON maintenance FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow authenticated users to update maintenance"
-ON maintenance FOR UPDATE
-USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Allow authenticated users to delete maintenance"
-ON maintenance FOR DELETE
-USING (auth.role() = 'authenticated'); 
+-- Allow all operations on maintenance
+CREATE POLICY "Allow all operations on maintenance"
+ON maintenance FOR ALL
+USING (true)
+WITH CHECK (true); 
