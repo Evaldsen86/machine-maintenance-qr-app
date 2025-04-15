@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { QrScanner } from '@yudiel/react-qr-scanner';
+import React, { useState, useEffect } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { CameraIcon, FlipVertical } from 'lucide-react';
 
 interface ScannerViewProps {
-  onScan: (result: string) => void;
+  onScan: (data: string) => void;
   onClose: () => void;
 }
 
@@ -17,10 +17,42 @@ export default function ScannerView({ onScan, onClose }: ScannerViewProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const { toast } = useToast();
+  const qrScannerId = 'qr-reader';
 
-  const handleScan = (result: string | null) => {
-    if (result) {
-      onScan(result);
+  useEffect(() => {
+    const html5QrCode = new Html5Qrcode(qrScannerId);
+    
+    const startScanner = async () => {
+      try {
+        await html5QrCode.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            onScan(decodedText);
+            html5QrCode.stop();
+          },
+          (errorMessage) => {
+            console.error(errorMessage);
+          }
+        );
+      } catch (err) {
+        console.error('Error starting scanner:', err);
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      html5QrCode.stop().catch(console.error);
+    };
+  }, [onScan]);
+
+  const handleScan = (data: string | null) => {
+    if (data) {
+      onScan(data);
     }
   };
 
@@ -47,14 +79,8 @@ export default function ScannerView({ onScan, onClose }: ScannerViewProps) {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (manualInput.trim()) {
-      onScan(manualInput.trim());
-    } else {
-      toast({
-        title: 'Ugyldig Input',
-        description: 'Indtast venligst et gyldigt maskine-ID',
-        variant: 'destructive',
-      });
+    if (manualInput) {
+      onScan(manualInput);
     }
   };
 
@@ -100,17 +126,7 @@ export default function ScannerView({ onScan, onClose }: ScannerViewProps) {
                 </div>
               </div>
             ) : (
-              <QrScanner
-                onDecode={handleScan}
-                onError={handleError}
-                constraints={{ 
-                  facingMode,
-                  width: { min: 640, ideal: 1280, max: 1920 },
-                  height: { min: 480, ideal: 720, max: 1080 },
-                  aspectRatio: { ideal: 1.7777777778 }
-                }}
-                className="w-full h-full"
-              />
+              <div id={qrScannerId} className="w-full" style={{ maxWidth: '500px', margin: '0 auto' }} />
             )}
           </div>
           
@@ -130,25 +146,21 @@ export default function ScannerView({ onScan, onClose }: ScannerViewProps) {
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <Input
               type="text"
-              placeholder="Indtast maskine-ID"
+              placeholder="Enter QR code manually"
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
-              className="w-full"
             />
-            <Button type="submit" className="w-full">
-              Indsend
-            </Button>
+            <div className="flex space-x-2">
+              <Button type="submit" disabled={!manualInput}>
+                Submit
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
           </form>
         </TabsContent>
       </Tabs>
-
-      <Button
-        variant="outline"
-        onClick={onClose}
-        className="w-full mt-4"
-      >
-        Luk
-      </Button>
     </div>
   );
 }
