@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { 
@@ -20,7 +19,7 @@ import {
   loadModelViewerScript,
   debug3DModel
 } from '@/utils/model3DUtils';
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Machine3DViewerProps {
   machine: Machine;
@@ -49,14 +48,16 @@ declare global {
   }
 }
 
-const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onClose }) => {
+export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onClose }) => {
   const [selectedModel, setSelectedModel] = useState<Model3D | null>(null);
   const [modelViewerLoaded, setModelViewerLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model3D[]>([]);
   const [showARInstructions, setShowARInstructions] = useState(false);
-  const [isLoadingModel, setIsLoadingModel] = useState(true);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [arQrCode, setArQrCode] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const { toast } = useToast();
 
   // Load all 3D models from the machine
   useEffect(() => {
@@ -98,10 +99,12 @@ const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onCl
       loadModelViewerScript().then(success => {
         setModelViewerLoaded(success);
         console.log("Model viewer script loaded:", success);
-        setTimeout(() => setIsLoadingModel(false), 1000); // Give a moment for model-viewer to initialize
+        if (success) {
+          setSelectedModel(machine.models3D[0]);
+        }
       });
     }
-  }, [isOpen]);
+  }, [isOpen, machine]);
 
   // Generate AR QR code when selected model changes
   useEffect(() => {
@@ -129,19 +132,31 @@ const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onCl
     const handleModelLoad = () => {
       console.log("3D model loaded successfully");
       setIsLoadingModel(false);
+      setRetryCount(0);
     };
 
     const handleModelError = (error: any) => {
       console.error("Error loading 3D model:", error);
-      toast({
-        variant: "destructive",
-        title: "Fejl ved indlæsning af 3D-model",
-        description: "Der opstod en fejl under indlæsning af 3D-modellen. Prøv venligst igen.",
-      });
-      setIsLoadingModel(false);
+      
+      if (retryCount < 3) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          setIsLoadingModel(true);
+          if (selectedModel) {
+            debug3DModel(selectedModel);
+          }
+        }, 1000 * (retryCount + 1));
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Fejl ved indlæsning af 3D-model",
+          description: "Der opstod en fejl under indlæsning af 3D-modellen. Prøv venligst igen.",
+        });
+        setIsLoadingModel(false);
+      }
     };
 
-    if (modelViewerLoaded) {
+    if (modelViewerLoaded && selectedModel) {
       const modelViewerElement = document.querySelector('model-viewer');
       if (modelViewerElement) {
         modelViewerElement.addEventListener('load', handleModelLoad);
@@ -155,7 +170,7 @@ const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onCl
         }
       };
     }
-  }, [modelViewerLoaded, selectedModel]);
+  }, [modelViewerLoaded, selectedModel, retryCount, toast]);
 
   const handleARView = () => {
     if (!selectedModel) {
@@ -189,6 +204,7 @@ const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpen, onCl
   const switchModel = (model: Model3D) => {
     setSelectedModel(model);
     setIsLoadingModel(true);
+    setRetryCount(0);
     debug3DModel(model);
   };
 

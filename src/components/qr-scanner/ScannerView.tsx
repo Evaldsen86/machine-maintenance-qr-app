@@ -1,166 +1,123 @@
-import React, { useState, useEffect } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import React, { useEffect, useRef, useState } from 'react';
+import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
+import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
-import { CameraIcon, FlipVertical } from 'lucide-react';
+import { Camera, CameraOff } from 'lucide-react';
 
 interface ScannerViewProps {
-  onScan: (data: string) => void;
-  onClose: () => void;
+  onScan: (result: string) => void;
 }
 
-export default function ScannerView({ onScan, onClose }: ScannerViewProps) {
-  const [manualInput, setManualInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
-  const { toast } = useToast();
-  const qrScannerId = 'qr-reader';
+export const ScannerView: React.FC<ScannerViewProps> = ({ onScan }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
 
-  useEffect(() => {
-    const html5QrCode = new Html5Qrcode(qrScannerId);
-    
-    const startScanner = async () => {
-      try {
-        await html5QrCode.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-          },
-          (decodedText) => {
-            onScan(decodedText);
-            html5QrCode.stop();
-          },
-          (errorMessage) => {
-            console.error(errorMessage);
+  const startScanner = async () => {
+    try {
+      setIsScanning(true);
+      const codeReader = new BrowserQRCodeReader();
+      
+      // Check for camera permissions
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setHasPermission(true);
+      stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+
+      if (videoRef.current) {
+        controlsRef.current = await codeReader.decodeFromVideoDevice(
+          undefined, // Use default camera
+          videoRef.current,
+          (result) => {
+            if (result) {
+              try {
+                const data = JSON.parse(result.getText());
+                onScan(data);
+                stopScanner();
+              } catch (error) {
+                toast({
+                  title: 'Ugyldig QR-kode',
+                  description: 'QR-koden indeholder ikke gyldig maskineinformation',
+                  variant: 'destructive',
+                });
+              }
+            }
           }
         );
-      } catch (err) {
-        console.error('Error starting scanner:', err);
       }
-    };
+    } catch (error) {
+      console.error('Scanner error:', error);
+      setHasPermission(false);
+      setIsScanning(false);
+      
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        toast({
+          title: 'Kamera adgang nægtet',
+          description: 'Giv venligst tilladelse til at bruge kameraet for at scanne QR-koder',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Scanner fejl',
+          description: 'Kunne ikke starte QR-scanner. Prøv at genindlæse siden',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
 
-    startScanner();
+  const stopScanner = () => {
+    if (controlsRef.current) {
+      controlsRef.current.stop();
+      controlsRef.current = null;
+    }
+    setIsScanning(false);
+  };
 
+  useEffect(() => {
     return () => {
-      html5QrCode.stop().catch(console.error);
+      stopScanner();
     };
-  }, [onScan]);
-
-  const handleScan = (data: string | null) => {
-    if (data) {
-      onScan(data);
-    }
-  };
-
-  const handleError = (error: Error) => {
-    console.error('Scanner error:', error);
-    setCameraError(error.message);
-    
-    let errorMessage = 'Der opstod en fejl med kameraet';
-    
-    if (error.message.includes('Permission')) {
-      errorMessage = 'Kameraadgang blev nægtet. Giv venligst tilladelse til at bruge kameraet.';
-    } else if (error.message.includes('NotFound')) {
-      errorMessage = 'Intet kamera fundet. Sørg for, at din enhed har et kamera.';
-    } else if (error.message.includes('NotReadable')) {
-      errorMessage = 'Kameraet er i brug af en anden app. Luk andre apps, der bruger kameraet.';
-    }
-    
-    toast({
-      title: 'Scanner Fejl',
-      description: errorMessage,
-      variant: 'destructive',
-    });
-  };
-
-  const handleManualSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (manualInput) {
-      onScan(manualInput);
-    }
-  };
-
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
-    setCameraError(null);
-    setIsLoading(true);
-  };
+  }, []);
 
   return (
-    <div className="w-full max-w-md mx-auto p-4">
-      <Tabs defaultValue="scanner" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="scanner">Scan QR</TabsTrigger>
-          <TabsTrigger value="manual">Manuel Indtastning</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="scanner" className="mt-4">
-          <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
-            {isLoading && !cameraError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-sm">
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-8 h-8 border-4 border-t-primary border-primary/30 rounded-full animate-spin" />
-                  <p className="text-sm text-muted-foreground">Starter kamera...</p>
-                </div>
-              </div>
-            )}
-            
-            {cameraError ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/10 p-4">
-                <div className="flex flex-col items-center space-y-4 text-center">
-                  <CameraIcon className="h-8 w-8 text-destructive" />
-                  <p className="text-sm text-destructive">{cameraError}</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setCameraError(null);
-                      setIsLoading(true);
-                    }}
-                  >
-                    Prøv igen
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div id={qrScannerId} className="w-full" style={{ maxWidth: '500px', margin: '0 auto' }} />
-            )}
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative w-full max-w-md aspect-square rounded-lg overflow-hidden bg-muted">
+        {isScanning ? (
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            Kamera er slukket
           </div>
-          
-          <div className="flex justify-center mt-4">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleCamera}
-              title={facingMode === 'environment' ? 'Skift til frontkamera' : 'Skift til bagkamera'}
-            >
-              <FlipVertical className="h-4 w-4" />
-            </Button>
-          </div>
-        </TabsContent>
+        )}
+      </div>
 
-        <TabsContent value="manual" className="mt-4">
-          <form onSubmit={handleManualSubmit} className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter QR code manually"
-              value={manualInput}
-              onChange={(e) => setManualInput(e.target.value)}
-            />
-            <div className="flex space-x-2">
-              <Button type="submit" disabled={!manualInput}>
-                Submit
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-      </Tabs>
+      <Button
+        onClick={isScanning ? stopScanner : startScanner}
+        variant={isScanning ? "destructive" : "default"}
+        className="w-full max-w-md"
+      >
+        {isScanning ? (
+          <>
+            <CameraOff className="mr-2 h-4 w-4" />
+            Stop Scanner
+          </>
+        ) : (
+          <>
+            <Camera className="mr-2 h-4 w-4" />
+            Start Scanner
+          </>
+        )}
+      </Button>
+
+      {hasPermission === false && (
+        <p className="text-sm text-destructive text-center max-w-md">
+          Kamera adgang er nægtet. Tjek venligst dine browser-indstillinger og giv tilladelse til at bruge kameraet.
+        </p>
+      )}
     </div>
   );
-}
+};

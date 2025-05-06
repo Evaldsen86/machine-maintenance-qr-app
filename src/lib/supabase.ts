@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { openDB } from 'idb';
 
 // These values should be stored in environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -8,22 +9,75 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client with auto-retry and better error handling
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: { 'x-application-name': 'machine-history-qr' }
+  }
+});
 
-// Helper functions for machine operations
+// Initialize IndexedDB for offline support
+const initDB = async () => {
+  return openDB('machine-history-qr', 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('machines')) {
+        db.createObjectStore('machines', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('tasks')) {
+        db.createObjectStore('tasks', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('maintenance')) {
+        db.createObjectStore('maintenance', { keyPath: 'id' });
+      }
+    }
+  });
+};
+
+// Initialize DB
+initDB().catch(console.error);
+
+// Helper functions for machine operations with offline support
 export const machineService = {
   // Expose the supabase client
   supabase,
   
-  // Get all machines
+  // Get all machines with offline support
   getAllMachines: async () => {
-    const { data, error } = await supabase
-      .from('machines')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('machines')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+
+      // Store in IndexedDB for offline access
+      const db = await initDB();
+      const tx = db.transaction('machines', 'readwrite');
+      const store = tx.objectStore('machines');
+      for (const machine of data) {
+        await store.put(machine);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching machines:', error);
+      
+      // Try to get from IndexedDB if online fetch fails
+      try {
+        const db = await initDB();
+        const machines = await db.getAll('machines');
+        return machines;
+      } catch (offlineError) {
+        console.error('Error fetching from IndexedDB:', offlineError);
+        throw error;
+      }
+    }
   },
 
   // Get a single machine by ID

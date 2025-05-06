@@ -1,156 +1,178 @@
 import React, { useEffect, useState } from 'react';
-import { Button } from '../ui/button';
-import { Card } from '../ui/card';
-import { toast } from 'react-hot-toast';
-import { machineService } from '../../lib/supabase';
-import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../../constants';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from '@/components/ui/use-toast';
+import { Download, Printer, Share2 } from 'lucide-react';
 import QRCode from 'qrcode';
 
 interface MachineQRSectionProps {
-  machineId: string;
+  machineId: number;
   machineName: string;
 }
 
-export default function MachineQRSection({ machineId, machineName }: MachineQRSectionProps) {
+export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, machineName }) => {
   const [qrImage, setQrImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const generateQRCode = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Create simple QR data
-      const qrData = {
-        id: machineId,
-        name: machineName,
-        url: window.location.href
-      };
-      
-      // Generate QR code image
-      const qrImageUrl = await QRCode.toDataURL(JSON.stringify(qrData), {
-        errorCorrectionLevel: 'H',
-        margin: 1,
-        width: 300,
-        type: 'image/png'
-      });
-      
-      setQrImage(qrImageUrl);
-      toast.success('QR code generated successfully');
-    } catch (error) {
-      console.error('QR generation error:', error);
-      toast.error('Could not generate QR code. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   useEffect(() => {
-    if (machineId && machineName) {
-      generateQRCode();
-    }
-  }, [machineId, machineName]);
+    const generateQRCode = async () => {
+      try {
+        setLoading(true);
+        // Create a more detailed QR code data object
+        const qrData = JSON.stringify({
+          id: machineId,
+          name: machineName,
+          timestamp: new Date().toISOString(),
+        });
+
+        const qrDataUrl = await QRCode.toDataURL(qrData, {
+          width: 300,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: {
+            dark: '#000000',
+            light: '#ffffff',
+          },
+        });
+        setQrImage(qrDataUrl);
+        setRetryCount(0); // Reset retry count on success
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+        if (retryCount < MAX_RETRIES) {
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => generateQRCode(), 1000); // Retry after 1 second
+        } else {
+          toast({
+            title: 'Fejl ved generering af QR-kode',
+            description: 'Kunne ikke generere QR-koden efter flere forsøg. Prøv venligst igen senere.',
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    generateQRCode();
+  }, [machineId, machineName, retryCount]);
 
   const handlePrint = () => {
     if (!qrImage) return;
-    
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error('Pop-up blocked. Please allow pop-ups for this site.');
+      toast({
+        title: 'Kunne ikke åbne print vindue',
+        description: 'Tillad venligst pop-up vinduer for denne side',
+        variant: 'destructive',
+      });
       return;
     }
-    
+
     printWindow.document.write(`
       <html>
         <head>
-          <title>QR Code - ${machineName}</title>
+          <title>Print QR Code - ${machineName}</title>
           <style>
-            body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            img { max-width: 300px; }
-            h2 { margin-top: 20px; }
+            body { 
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+            }
+            img { max-width: 80%; height: auto; }
+            h1 { font-family: Arial, sans-serif; margin-bottom: 20px; }
           </style>
         </head>
         <body>
-          <img src="${qrImage}" alt="QR Code for ${machineName}" />
-          <h2>${machineName}</h2>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.onafterprint = function() {
-                window.close();
-              };
-            };
-          </script>
+          <h1>${machineName}</h1>
+          <img src="${qrImage}" alt="QR Code" />
         </body>
       </html>
     `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   const handleDownload = () => {
     if (!qrImage) return;
-    
     const link = document.createElement('a');
     link.href = qrImage;
     link.download = `qr-code-${machineName.toLowerCase().replace(/\s+/g, '-')}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('QR code downloaded');
+    
+    toast({
+      title: 'QR-kode downloadet',
+      description: 'QR-koden er gemt på din enhed',
+    });
   };
 
   const handleShare = async () => {
     if (!qrImage) return;
-    
     try {
+      const blob = await fetch(qrImage).then(r => r.blob());
+      const file = new File([blob], `qr-code-${machineName}.png`, { type: 'image/png' });
+      
       if (navigator.share) {
-        const blob = await (await fetch(qrImage)).blob();
-        const file = new File([blob], `qr-code-${machineName}.png`, { type: 'image/png' });
-        
         await navigator.share({
-          title: `QR Code for ${machineName}`,
-          text: `Scan this QR code to access information about ${machineName}`,
-          files: [file]
+          title: `QR-kode for ${machineName}`,
+          files: [file],
         });
       } else {
-        // Fallback for browsers that don't support the Web Share API
-        const shareUrl = window.location.href;
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('Link copied to clipboard!');
+        toast({
+          title: 'Deling ikke understøttet',
+          description: 'Din enhed understøtter ikke deling',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
-      console.error('Share error:', error);
-      toast.error('Failed to share QR code');
+      if (error instanceof Error && error.name !== 'AbortError') {
+        toast({
+          title: 'Fejl ved deling',
+          description: 'Kunne ikke dele QR-koden',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
   return (
-    <Card className="p-4">
-      <h3 className="text-lg font-semibold mb-4">QR-kode for {machineName}</h3>
-      
-      <div className="flex flex-col items-center gap-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>QR-kode</CardTitle>
+        <CardDescription>Scan QR-koden for at få hurtig adgang til maskinen</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center gap-4">
+        {loading ? (
+          <div className="w-[300px] h-[300px] animate-pulse bg-muted rounded-lg" />
         ) : qrImage ? (
-          <>
-            <img 
-              src={qrImage} 
-              alt={`QR Code for ${machineName}`} 
-              className="max-w-full h-auto border p-2 rounded-lg"
-            />
-            <div className="flex gap-2 mt-4">
-              <Button onClick={handlePrint} variant="outline">Print</Button>
-              <Button onClick={handleDownload} variant="outline">Download QR-kode</Button>
-              <Button onClick={handleShare} variant="outline">Share</Button>
-            </div>
-          </>
+          <img src={qrImage} alt="QR Code" className="w-[300px] h-[300px]" />
         ) : (
-          <div className="text-center p-4">
-            <p className="text-red-500">Kunne ikke generere QR-kode</p>
-            <Button onClick={generateQRCode} variant="outline" className="mt-2">Prøv igen</Button>
+          <div className="w-[300px] h-[300px] flex items-center justify-center bg-muted rounded-lg">
+            Kunne ikke generere QR-kode
           </div>
         )}
-      </div>
+        
+        <div className="flex gap-2">
+          <Button onClick={handlePrint} disabled={!qrImage}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print
+          </Button>
+          <Button onClick={handleDownload} disabled={!qrImage}>
+            <Download className="mr-2 h-4 w-4" />
+            Download
+          </Button>
+          <Button onClick={handleShare} disabled={!qrImage}>
+            <Share2 className="mr-2 h-4 w-4" />
+            Del
+          </Button>
+        </div>
+      </CardContent>
     </Card>
   );
-}
+};

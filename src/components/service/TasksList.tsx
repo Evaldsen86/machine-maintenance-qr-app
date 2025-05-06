@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Task } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +38,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from '@/hooks/useAuth';
 import { mockUsers } from '@/data/mockData';
+import { toast } from "@/components/ui/use-toast";
 
 interface TasksListProps {
   tasks: Task[];
@@ -67,21 +67,31 @@ const TasksList: React.FC<TasksListProps> = ({ tasks, onTaskComplete }) => {
     setShowCompleteDialog(true);
   };
   
-  const handleCompleteTask = () => {
+  const handleCompleteTask = async () => {
     if (!selectedTask || !onTaskComplete || isSubmitting) return;
     
     try {
       setIsSubmitting(true);
       
-      // Using setTimeout to prevent UI blocking
-      setTimeout(() => {
-        onTaskComplete(selectedTask.id, completedBy);
-        setSelectedTask(null);
-        setShowCompleteDialog(false);
-        setIsSubmitting(false);
-      }, 0);
+      // Call the parent handler
+      await onTaskComplete(selectedTask.id, completedBy);
+      
+      // Only update UI after successful completion
+      setSelectedTask(null);
+      setShowCompleteDialog(false);
+      
+      toast({
+        title: "Opgave fuldført",
+        description: "Opgaven er blevet markeret som fuldført.",
+      });
     } catch (error) {
       console.error("Error completing task:", error);
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Der opstod en fejl ved markering af opgave. Prøv venligst igen.",
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };

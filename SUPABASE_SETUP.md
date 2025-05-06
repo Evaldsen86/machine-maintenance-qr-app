@@ -31,8 +31,8 @@ This guide will help you set up Supabase as the database for your Machine Histor
 1. Open the `.env` file in your project
 2. Replace the placeholder values with your actual Supabase credentials:
    ```
-   VITE_SUPABASE_URL=https://your-project-id.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_SUPABASE_URL=<your-supabase-project-url>
+   VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
    ```
 
 ## Step 5: Test the Connection

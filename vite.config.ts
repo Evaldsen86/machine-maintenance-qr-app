@@ -14,4 +14,22 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    target: 'es2015',
+    minify: 'esbuild',
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html')
+      }
+    }
+  },
+  optimizeDeps: {
+    disabled: false,
+    esbuildOptions: {
+      target: 'esnext',
+      supported: { 
+        'top-level-await': true 
+      },
+    }
+  }
 });

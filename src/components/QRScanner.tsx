@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ScannerHeader from './qr-scanner/ScannerHeader';
-import ScannerView from './qr-scanner/ScannerView';
+import { ScannerView } from './qr-scanner/ScannerView';
 import ManualEntryView from './qr-scanner/ManualEntryView';
 import { useQRScanner } from './qr-scanner/useQRScanner';
 
@@ -12,7 +11,7 @@ interface QRScannerProps {
 }
 
 const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScan }) => {
-  const { selectedTab, setSelectedTab, handleScan } = useQRScanner(onClose, onScan);
+  const { selectedTab, setSelectedTab, handleScan, machines } = useQRScanner(onClose, onScan);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -35,7 +34,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScan }) => {
           </TabsContent>
           
           <TabsContent value="manual">
-            <ManualEntryView onScan={handleScan} />
+            <ManualEntryView onScan={handleScan} machines={machines} />
           </TabsContent>
         </Tabs>
       </div>

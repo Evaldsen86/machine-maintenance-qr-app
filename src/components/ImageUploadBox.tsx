@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Image, Upload, Trash2, Box, File, Info, View, Boxes } from 'lucide-react';
-import { Model3D } from '@/types';
+import { Model3D, createModel3DFromFile } from '@/types';
 import { 
   Tooltip,
   TooltipContent,
@@ -15,14 +15,13 @@ import {
   get3DSupportMessage, 
   isValid3DFile,
   hasValidImageSource,
-  createModel3DFromFile 
 } from '@/utils/model3DUtils';
 
 interface ImageUploadBoxProps {
   onUpload: (imageUrl: string) => void;
-  onUpload3D?: (model: Model3D) => void; // Optional callback for 3D model uploads
-  onDeleteExistingImage?: (imageUrl: string) => void; // New prop for deleting existing images
-  existingImages?: string[]; // New prop to display existing images
+  onUpload3D?: (model: Model3D) => void;
+  onDeleteExistingImage?: () => void;
+  existingImages?: string[];
 }
 
 const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({ 
@@ -34,8 +33,10 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [model3DFile, setModel3DFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const model3DInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,77 +80,92 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
     }
   };
   
-  const handleFile = (file: File) => {
-    const fileName = file.name.toLowerCase();
-    if (fileName.endsWith('.glb') || fileName.endsWith('.usdz')) {
-      // For 3D files, check if we have existing images or a preview image
-      if (hasValidImageSource(previewUrl, existingImages) && onUpload3D) {
-        handle3DFile(file);
-        return;
-      } else {
+  const handleFile = async (file: File) => {
+    try {
+      setIsLoading(true);
+      
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.glb') || fileName.endsWith('.usdz')) {
+        // For 3D files, check if we have existing images or a preview image
+        if (hasValidImageSource(previewUrl, existingImages) && onUpload3D) {
+          await handle3DFile(file);
+          return;
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Fejl",
+            description: "Upload venligst et billede først, før du tilføjer en 3D-model",
+          });
+          return;
+        }
+      }
+      
+      if (!file.type.startsWith('image/')) {
         toast({
           variant: "destructive",
           title: "Fejl",
-          description: "Upload venligst et billede først, før du tilføjer en 3D-model",
+          description: "Filen skal være et billede (JPG, PNG, etc.)",
         });
         return;
       }
-    }
-    
-    if (!file.type.startsWith('image/')) {
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Fejl",
+          description: "Billedet må ikke være større end 5MB",
+        });
+        return;
+      }
+      
+      const imageUrl = URL.createObjectURL(file);
+      setPreviewUrl(imageUrl);
+      
+      onUpload(imageUrl);
+      
+      toast({
+        title: "Billede uploadet",
+        description: "Billedet er blevet tilføjet til maskinen",
+      });
+    } catch (error) {
+      console.error("Error handling file:", error);
       toast({
         variant: "destructive",
         title: "Fejl",
-        description: "Filen skal være et billede (JPG, PNG, etc.)",
+        description: "Der opstod en fejl under upload af filen",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "Billedet må ikke være større end 5MB",
-      });
-      return;
-    }
-    
-    const imageUrl = URL.createObjectURL(file);
-    setPreviewUrl(imageUrl);
-    
-    onUpload(imageUrl);
-    
-    toast({
-      title: "Billede uploadet",
-      description: "Billedet er blevet tilføjet til maskinen",
-    });
   };
   
-  const handle3DFile = (file: File) => {
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.glb') && !fileName.endsWith('.usdz')) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "3D-filen skal være i GLB eller USDZ-format",
-      });
-      return;
-    }
-    
-    if (file.size > 25 * 1024 * 1024) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "3D-filen må ikke være større end 25MB",
-      });
-      return;
-    }
-    
-    setModel3DFile(file);
-    
-    // Check if there's either a preview image or existing images
-    if (onUpload3D && (previewUrl || existingImages.length > 0)) {
-      try {
+  const handle3DFile = async (file: File) => {
+    try {
+      setIsLoading(true);
+      
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.glb') && !fileName.endsWith('.usdz')) {
+        toast({
+          variant: "destructive",
+          title: "Fejl",
+          description: "3D-filen skal være i GLB eller USDZ-format",
+        });
+        return;
+      }
+      
+      if (file.size > 25 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "Fejl",
+          description: "3D-filen må ikke være større end 25MB",
+        });
+        return;
+      }
+      
+      setModel3DFile(file);
+      
+      // Check if there's either a preview image or existing images
+      if (onUpload3D && (previewUrl || existingImages.length > 0)) {
         // Use preview URL if available, otherwise use the first existing image as thumbnail
         const thumbnailUrl = previewUrl || (existingImages.length > 0 ? existingImages[0] : undefined);
         const model = createModel3DFromFile(file, thumbnailUrl);
@@ -166,20 +182,22 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
           description: "Efter billedet er gemt, kan 3D-modellen vises ved at klikke på billedet i galleriet og derefter vælge '3D' knappen.",
           duration: 6000
         });
-      } catch (error) {
-        console.error("Error creating 3D model:", error);
+      } else if (!hasValidImageSource(previewUrl, existingImages)) {
         toast({
           variant: "destructive",
           title: "Fejl",
-          description: "Der opstod en fejl ved håndtering af 3D-filen",
+          description: "Upload venligst et billede først, før du tilføjer en 3D-model",
         });
       }
-    } else if (!hasValidImageSource(previewUrl, existingImages)) {
+    } catch (error) {
+      console.error("Error creating 3D model:", error);
       toast({
         variant: "destructive",
         title: "Fejl",
-        description: "Upload venligst et billede først, før du tilføjer en 3D-model",
+        description: "Der opstod en fejl ved håndtering af 3D-filen",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -204,9 +222,9 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
     fileInputRef.current?.click();
   };
   
-  const handleDeleteExistingImage = (imageUrl: string) => {
+  const handleDeleteExistingImage = () => {
     if (onDeleteExistingImage) {
-      onDeleteExistingImage(imageUrl);
+      onDeleteExistingImage();
       toast({
         title: "Billede slettet",
         description: "Billedet er blevet fjernet fra maskinen",
@@ -355,7 +373,7 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
                   variant="destructive" 
                   size="icon" 
                   className="absolute top-1 right-1 h-6 w-6 bg-black/60 hover:bg-black/80"
-                  onClick={() => handleDeleteExistingImage(img)}
+                  onClick={() => handleDeleteExistingImage()}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

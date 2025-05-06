@@ -1,4 +1,3 @@
-
 export type UserRole = 'admin' | 'mechanic' | 'technician' | 'driver' | 'blacksmith' | 'guest' | 'viewer' | 'customer';
 
 export interface User {
@@ -149,12 +148,23 @@ export interface Document {
 }
 
 export interface Model3D {
-  id?: string; // Add optional id property
-  fileUrl: string;
-  fileType: '3d-glb' | '3d-usdz' | '3d-obj';
-  fileName?: string;
-  thumbnail?: string;
+  id: string;
+  file: File;
+  thumbnailUrl?: string;
+  type: 'glb' | 'usdz';
 }
+
+export const createModel3DFromFile = (file: File, thumbnailUrl?: string): Model3D => {
+  const fileName = file.name.toLowerCase();
+  const type = fileName.endsWith('.glb') ? 'glb' : 'usdz';
+  
+  return {
+    id: crypto.randomUUID(),
+    file,
+    thumbnailUrl,
+    type
+  };
+};
 
 export interface NavItem {
   title: string;

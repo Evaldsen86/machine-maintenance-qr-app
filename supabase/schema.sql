@@ -1,3 +1,13 @@
+-- Drop existing triggers if they exist
+DROP TRIGGER IF EXISTS update_machines_updated_at ON machines;
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+DROP TRIGGER IF EXISTS update_maintenance_updated_at ON maintenance;
+
+-- Drop existing tables if they exist (in reverse order of dependencies)
+DROP TABLE IF EXISTS maintenance;
+DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS machines;
+
 -- Create machines table
 CREATE TABLE IF NOT EXISTS machines (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -35,8 +45,8 @@ CREATE TABLE IF NOT EXISTS maintenance (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
+-- Create or replace the updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -44,21 +54,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create triggers for updated_at
+-- Create triggers for updated_at columns
 CREATE TRIGGER update_machines_updated_at
-BEFORE UPDATE ON machines
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+  BEFORE UPDATE ON machines
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER update_tasks_updated_at
-BEFORE UPDATE ON tasks
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+  BEFORE UPDATE ON tasks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER update_maintenance_updated_at
-BEFORE UPDATE ON maintenance
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+  BEFORE UPDATE ON maintenance
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
 
 -- Enable RLS but allow all operations for now
 ALTER TABLE machines ENABLE ROW LEVEL SECURITY;

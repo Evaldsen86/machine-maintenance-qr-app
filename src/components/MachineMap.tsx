@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Machine, Location } from '@/types';
+import { Machine } from '@/types';
 import { MapPin, Map, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -14,6 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icons in Leaflet with Next.js
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface MachineMapProps {
   machines: Machine[];
@@ -30,7 +41,6 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
     
     machines.forEach(machine => {
       if (machine.location) {
-        // Handle both string and Location object types
         const locationName = typeof machine.location === 'string' 
           ? machine.location 
           : machine.location.name;
@@ -44,16 +54,6 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
     
     return locationMap;
   }, [machines]);
-
-  // Calculate total machines with locations
-  const machinesWithLocation = useMemo(() => {
-    return machines.filter(machine => machine.location).length;
-  }, [machines]);
-
-  // Calculate locations with machines
-  const locationsWithMachines = useMemo(() => {
-    return Object.keys(machinesByLocation).length;
-  }, [machinesByLocation]);
 
   // Get list of all locations for dropdown
   const allLocations = useMemo(() => {
@@ -84,7 +84,7 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
   };
 
   return (
-    <Card className="w-full h-[400px] overflow-hidden">
+    <Card className="w-full h-[600px] overflow-hidden">
       <CardHeader className="p-4 pb-0">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -92,10 +92,10 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
             <span>Maskine Placeringer</span>
             <div className="flex items-center gap-2 text-sm font-normal">
               <Badge variant="outline" className="bg-primary/10">
-                {machinesWithLocation} maskiner
+                {machines.length} maskiner
               </Badge>
               <Badge variant="outline" className="bg-primary/10">
-                {locationsWithMachines} lokationer
+                {allLocations.length} lokationer
               </Badge>
             </div>
           </CardTitle>
@@ -133,102 +133,47 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
         </div>
       </CardHeader>
       <CardContent className="p-4 h-[calc(100%-70px)] relative">
-        <div className="h-full w-full bg-muted/20 rounded-md relative border">
-          {/* Greenland map visualization */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="relative w-full h-full">
-              {/* SVG for Greenland Map */}
-              <svg 
-                viewBox="0 0 100 100" 
-                className="w-full h-full absolute inset-0"
-                preserveAspectRatio="none"
-              >
-                {/* Improved Greenland outline with more detail */}
-                <path 
-                  d="M35,5 C40,5 45,5 50,7 C55,9 60,12 65,15 
-                     C70,18 75,20 80,30 C85,40 90,50 90,60 
-                     C90,70 85,75 80,80 C75,85 65,90 55,92 
-                     C45,94 35,93 30,85 C25,80 20,70 15,60 
-                     C10,50 10,40 15,30 C20,20 30,10 35,5 Z" 
-                  fill="#e5e7eb" 
-                  stroke="#9ca3af" 
-                  strokeWidth="0.5"
-                />
-                
-                {/* Coastal details */}
-                <path 
-                  d="M45,10 C50,12 55,15 60,18 C65,21 68,25 70,30 
-                     C72,35 73,40 75,50 C77,60 78,70 75,80 
-                     C72,85 68,88 60,90 C55,91 50,92 45,90 
-                     C40,88 35,85 30,80 C25,75 22,65 20,55 
-                     C18,45 18,35 20,25 C22,15 30,8 45,10 Z" 
-                  fill="#f3f4f6" 
-                  stroke="#9ca3af" 
-                  strokeWidth="0.3"
-                  opacity="0.8"
-                />
-              </svg>
-
-              {/* City/location markers */}
-              <TooltipProvider>
+        <MapContainer
+          center={[71.7069, -42.6043]} // Center of Greenland
+          zoom={5}
+          style={{ height: '100%', width: '100%' }}
+          className="rounded-md"
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+          
                 {Object.entries(machinesByLocation).map(([location, locationMachines]) => {
-                  // Skip if filtered and not the selected location
                   if (selectedLocation !== 'all' && selectedLocation !== location) {
                     return null;
                   }
                   
-                  // Get coordinates for this location
-                  const normalizedX = getRelativeX(location);
-                  const normalizedY = getRelativeY(location);
+            const coordinates = getLocationCoordinates(location);
+            if (!coordinates) return null;
                   
                   const count = locationMachines.length;
-                  
-                  // Scale the marker size based on machine count (between 24px and 44px)
-                  const size = Math.max(24, Math.min(44, 24 + (count * 2)));
-                  
-                  // Determine pin color based on most common machine status
                   const statuses = locationMachines.map(m => m.status);
                   const activeCount = statuses.filter(s => s === 'active').length;
                   const maintenanceCount = statuses.filter(s => s === 'maintenance').length;
                   const inactiveCount = statuses.filter(s => s === 'inactive').length;
                   
-                  let pinColor = 'bg-green-500';
+            let statusColor = 'green';
                   if (inactiveCount > activeCount && inactiveCount > maintenanceCount) {
-                    pinColor = 'bg-red-500';
+              statusColor = 'red';
                   } else if (maintenanceCount > activeCount) {
-                    pinColor = 'bg-yellow-500';
+              statusColor = 'yellow';
                   }
-
-                  // Highlight selected location
-                  const isSelected = selectedLocation === location;
-                  const scaleEffect = isSelected ? 'scale-125' : 'hover:scale-110';
-                  const zIndexClass = isSelected ? 'z-10' : '';
                   
                   return (
-                    <Tooltip key={location}>
-                      <TooltipTrigger asChild>
-                        <div 
-                          className={`absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${scaleEffect} ${zIndexClass}`}
-                          style={{ 
-                            left: `${normalizedX}%`, 
-                            top: `${normalizedY}%` 
-                          }}
-                          onClick={() => onSelectMachine && onSelectMachine(locationMachines[0])}
-                        >
-                          <div className="flex flex-col items-center">
-                            <div 
-                              className={`flex items-center justify-center rounded-full shadow-lg ${pinColor} text-white font-medium ${isSelected ? 'ring-4 ring-blue-400 ring-opacity-50' : ''}`}
-                              style={{ width: `${size}px`, height: `${size}px` }}
-                            >
-                              <span className="text-sm">{count}</span>
-                            </div>
-                            <div className={`mt-1 bg-white/90 backdrop-blur-sm shadow-sm px-2 py-0.5 rounded-md text-xs ${isSelected ? 'font-bold' : ''}`}>
-                              {location}
-                            </div>
-                          </div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={5} className="z-50">
+              <Marker
+                key={location}
+                position={[coordinates.lat, coordinates.lng]}
+                eventHandlers={{
+                  click: () => onSelectMachine && onSelectMachine(locationMachines[0])
+                }}
+              >
+                <Popup>
                         <div className="p-2">
                           <p className="font-medium text-sm">{location}</p>
                           <p className="text-xs text-muted-foreground">{count} maskine{count > 1 ? 'r' : ''}</p>
@@ -238,111 +183,51 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
                             {inactiveCount > 0 && <Badge className="bg-red-500 text-[10px]">Inaktiv: {inactiveCount}</Badge>}
                           </div>
                         </div>
-                      </TooltipContent>
-                    </Tooltip>
+                </Popup>
+              </Marker>
                   );
                 })}
-              </TooltipProvider>
-              
-              {/* Legend */}
-              <div className="absolute bottom-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-md shadow-sm">
-                <div className="text-xs font-medium mb-1">Status</div>
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-xs">Aktiv</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                    <span className="text-xs">Vedligeholdelse</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span className="text-xs">Inaktiv</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        </MapContainer>
       </CardContent>
     </Card>
   );
 };
 
-// Helper functions to position locations on the map with realistic Greenland geography
-function getRelativeX(location: string): number {
-  // Define x-coordinate mapping for locations (approximate longitude position on SVG)
-  const locationXPositions: Record<string, number> = {
-    "Nuuk": 34,
-    "Sisimiut": 30,
-    "Ilulissat": 35,
-    "Qaqortoq": 44,
-    "Aasiaat": 28,
-    "Maniitsoq": 32,
-    "Tasiilaq": 64,
-    "Paamiut": 38,
-    "Narsaq": 43,
-    "Nanortalik": 45,
-    "Uummannaq": 33,
-    "Qasigiannguit": 32,
-    "Upernavik": 26,
-    "Qeqertarsuaq": 26,
-    "Kangaatsiaq": 27,
-    "Ittoqqortoormiit": 75,
-    "Kangerlussuaq": 30,
-    "Kullorsuaq": 24,
-    "Kuummiut": 65,
-    "Arsuk": 39,
-    "Narsarsuaq": 42,
-    "Qaanaaq": 18,
-    "Savissivik": 20,
-    "Niaqornat": 32,
-    "Atammik": 33,
-    "Kapisillit": 35,
-    "Qeqertarsuatsiaat": 36,
-    "Qassimiut": 44,
-    "Alluitsup Paa": 45
+// Helper function to get coordinates for locations
+function getLocationCoordinates(location: string): { lat: number; lng: number } | null {
+  const coordinates: Record<string, { lat: number; lng: number }> = {
+    "Nuuk": { lat: 64.1748, lng: -51.7381 },
+    "Sisimiut": { lat: 66.9389, lng: -53.6735 },
+    "Ilulissat": { lat: 69.2198, lng: -51.0986 },
+    "Qaqortoq": { lat: 60.7184, lng: -46.0356 },
+    "Aasiaat": { lat: 68.7102, lng: -52.8699 },
+    "Maniitsoq": { lat: 65.4146, lng: -52.9004 },
+    "Tasiilaq": { lat: 65.6135, lng: -37.6336 },
+    "Paamiut": { lat: 62.0046, lng: -49.6772 },
+    "Narsaq": { lat: 60.9120, lng: -46.0498 },
+    "Nanortalik": { lat: 60.1425, lng: -45.2397 },
+    "Uummannaq": { lat: 70.6740, lng: -52.1124 },
+    "Qasigiannguit": { lat: 68.8193, lng: -51.1972 },
+    "Upernavik": { lat: 72.7079, lng: -56.1425 },
+    "Qeqertarsuaq": { lat: 69.2432, lng: -53.5513 },
+    "Kangaatsiaq": { lat: 68.3059, lng: -53.4624 },
+    "Ittoqqortoormiit": { lat: 70.4837, lng: -21.9622 },
+    "Kangerlussuaq": { lat: 67.0105, lng: -50.7217 },
+    "Kullorsuaq": { lat: 74.5802, lng: -57.2208 },
+    "Kuummiut": { lat: 65.8578, lng: -37.0164 },
+    "Arsuk": { lat: 61.1756, lng: -48.4539 },
+    "Narsarsuaq": { lat: 61.1504, lng: -45.4254 },
+    "Qaanaaq": { lat: 77.4669, lng: -69.2284 },
+    "Savissivik": { lat: 76.0195, lng: -65.0832 },
+    "Niaqornat": { lat: 70.7820, lng: -53.6749 },
+    "Atammik": { lat: 64.8122, lng: -52.1831 },
+    "Kapisillit": { lat: 64.4414, lng: -50.2735 },
+    "Qeqertarsuatsiaat": { lat: 63.0832, lng: -50.6871 },
+    "Qassimiut": { lat: 60.7795, lng: -47.1566 },
+    "Alluitsup Paa": { lat: 60.4642, lng: -45.5672 }
   };
 
-  return locationXPositions[location] || 50; // Default to center if location not found
-}
-
-function getRelativeY(location: string): number {
-  // Define y-coordinate mapping for locations (approximate latitude position on SVG)
-  const locationYPositions: Record<string, number> = {
-    "Nuuk": 57,
-    "Sisimiut": 45,
-    "Ilulissat": 35,
-    "Qaqortoq": 84,
-    "Aasiaat": 42,
-    "Maniitsoq": 53,
-    "Tasiilaq": 60,
-    "Paamiut": 67,
-    "Narsaq": 80,
-    "Nanortalik": 87,
-    "Uummannaq": 25,
-    "Qasigiannguit": 38,
-    "Upernavik": 15,
-    "Qeqertarsuaq": 36,
-    "Kangaatsiaq": 43,
-    "Ittoqqortoormiit": 40,
-    "Kangerlussuaq": 48,
-    "Kullorsuaq": 10,
-    "Kuummiut": 58,
-    "Arsuk": 72,
-    "Narsarsuaq": 78,
-    "Qaanaaq": 5,
-    "Savissivik": 8,
-    "Niaqornat": 24,
-    "Atammik": 55,
-    "Kapisillit": 56,
-    "Qeqertarsuatsiaat": 63,
-    "Qassimiut": 82,
-    "Alluitsup Paa": 85
-  };
-
-  return locationYPositions[location] || 50; // Default to center if location not found
+  return coordinates[location] || null;
 }
 
 export default MachineMap;
