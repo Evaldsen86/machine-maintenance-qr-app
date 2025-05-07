@@ -9,7 +9,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, QrCode, Search, Truck, Users, MapPin, Trash } from 'lucide-react';
+import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import Navbar from '@/components/Navbar';
 import MachineCard from '@/components/MachineCard';
 import MachineMap from '@/components/MachineMap';
 import MachineAddForm from '@/components/machine/MachineAddForm';
+import { BatchQRGenerator } from '@/components/machine/BatchQRGenerator';
 import { useAuth } from '@/hooks/useAuth';
 import { mockMachines } from '@/data/mockData';
 import QRScanner from '@/components/QRScanner';
@@ -255,94 +256,58 @@ const Dashboard = () => {
               </CardContent>
             </Card>
             
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold tracking-tight">Dine Maskiner</h2>
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Tabs defaultValue="grid" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <TabsList>
+                  <TabsTrigger value="grid" onClick={() => setViewMode('grid')}>
+                    <Truck className="h-4 w-4 mr-2" />
+                    Grid
+                  </TabsTrigger>
+                  <TabsTrigger value="map" onClick={() => setViewMode('map')}>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Kort
+                  </TabsTrigger>
+                  {hasPermission('admin') && (
+                    <TabsTrigger value="qr">
+                      <QrCodeIcon className="h-4 w-4 mr-2" />
+                      QR-koder
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      type="search"
-                      placeholder="Søg efter maskiner..."
-                      className="pl-8"
+                      placeholder="Søg maskiner..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
                     />
-                  </div>
-                  <div className="flex items-center">
-                    <Button 
-                      variant={viewMode === 'grid' ? 'default' : 'outline'} 
-                      size="sm" 
-                      onClick={() => setViewMode('grid')}
-                      className="rounded-r-none"
-                    >
-                      Grid
-                    </Button>
-                    <Button 
-                      variant={viewMode === 'map' ? 'default' : 'outline'} 
-                      size="sm" 
-                      onClick={() => setViewMode('map')}
-                      className="rounded-l-none"
-                    >
-                      Kort
-                    </Button>
                   </div>
                 </div>
               </div>
-              
-              {viewMode === 'map' ? (
-                <MachineMap machines={filteredMachines} onSelectMachine={handleSelectMachine} />
-              ) : (
-                <Tabs defaultValue="all" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="all">Alle</TabsTrigger>
-                    <TabsTrigger value="trucks">Lastbiler</TabsTrigger>
-                    <TabsTrigger value="cranes">Kraner</TabsTrigger>
-                    <TabsTrigger value="winches">Spil</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="all" className="space-y-4">
-                    {filteredMachines.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredMachines.map((machine) => renderMachineCard(machine))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <Truck className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                        <h3 className="text-lg font-medium">Ingen maskiner fundet</h3>
-                        <p className="text-muted-foreground">
-                          {searchQuery ? "Prøv at søge efter noget andet." : "Der er ingen maskiner i systemet endnu."}
-                        </p>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="trucks" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredMachines
-                        .filter(machine => machine.equipment.some(eq => eq.type === 'truck'))
-                        .map((machine) => renderMachineCard(machine))}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="cranes" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredMachines
-                        .filter(machine => machine.equipment.some(eq => eq.type === 'crane'))
-                        .map((machine) => renderMachineCard(machine))}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="winches" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredMachines
-                        .filter(machine => machine.equipment.some(eq => eq.type === 'winch'))
-                        .map((machine) => renderMachineCard(machine))}
-                    </div>
-                  </TabsContent>
-                </Tabs>
+
+              <TabsContent value="grid" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredMachines.map(renderMachineCard)}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="map" className="space-y-4">
+                <MachineMap
+                  machines={filteredMachines}
+                  selectedMachine={selectedMachine}
+                  onSelectMachine={handleSelectMachine}
+                />
+              </TabsContent>
+
+              {hasPermission('admin') && (
+                <TabsContent value="qr" className="space-y-4">
+                  <BatchQRGenerator machines={machines} />
+                </TabsContent>
               )}
-            </div>
+            </Tabs>
           </div>
         </div>
       </main>

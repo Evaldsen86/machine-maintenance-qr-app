@@ -1,0 +1,49 @@
+.custom-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marker-pin {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  position: relative;
+  transform: rotate(-45deg);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.marker-pin::after {
+  content: '';
+  width: 14px;
+  height: 14px;
+  margin: 8px 0 0 8px;
+  background: #FFFFFF;
+  position: absolute;
+  border-radius: 50%;
+}
+
+.marker-pin.green {
+  background: #22c55e;
+}
+
+.marker-pin.yellow {
+  background: #eab308;
+}
+
+.marker-pin.red {
+  background: #ef4444;
+}
+
+.custom-marker.selected .marker-pin {
+  transform: rotate(-45deg) scale(1.2);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.custom-marker.selected .marker-pin::after {
+  width: 16px;
+  height: 16px;
+  margin: 7px 0 0 7px;
+} 

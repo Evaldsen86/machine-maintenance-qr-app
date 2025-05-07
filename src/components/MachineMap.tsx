@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import './MachineMap.css';
 import L from 'leaflet';
 
 // Fix for default marker icons in Leaflet with Next.js
@@ -28,10 +29,11 @@ L.Icon.Default.mergeOptions({
 
 interface MachineMapProps {
   machines: Machine[];
+  selectedMachine?: Machine | null;
   onSelectMachine?: (machine: Machine) => void;
 }
 
-const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) => {
+const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSelectMachine }) => {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const isMobile = useIsMobile();
 
@@ -144,49 +146,55 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, onSelectMachine }) =>
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           
-                {Object.entries(machinesByLocation).map(([location, locationMachines]) => {
-                  if (selectedLocation !== 'all' && selectedLocation !== location) {
-                    return null;
-                  }
-                  
+          {Object.entries(machinesByLocation).map(([location, locationMachines]) => {
+            if (selectedLocation !== 'all' && selectedLocation !== location) {
+              return null;
+            }
+            
             const coordinates = getLocationCoordinates(location);
             if (!coordinates) return null;
-                  
-                  const count = locationMachines.length;
-                  const statuses = locationMachines.map(m => m.status);
-                  const activeCount = statuses.filter(s => s === 'active').length;
-                  const maintenanceCount = statuses.filter(s => s === 'maintenance').length;
-                  const inactiveCount = statuses.filter(s => s === 'inactive').length;
-                  
+            
+            const count = locationMachines.length;
+            const statuses = locationMachines.map(m => m.status);
+            const activeCount = statuses.filter(s => s === 'active').length;
+            const maintenanceCount = statuses.filter(s => s === 'maintenance').length;
+            const inactiveCount = statuses.filter(s => s === 'inactive').length;
+            
             let statusColor = 'green';
-                  if (inactiveCount > activeCount && inactiveCount > maintenanceCount) {
+            if (inactiveCount > activeCount && inactiveCount > maintenanceCount) {
               statusColor = 'red';
-                  } else if (maintenanceCount > activeCount) {
+            } else if (maintenanceCount > activeCount) {
               statusColor = 'yellow';
-                  }
-                  
-                  return (
+            }
+            
+            return (
               <Marker
                 key={location}
                 position={[coordinates.lat, coordinates.lng]}
                 eventHandlers={{
                   click: () => onSelectMachine && onSelectMachine(locationMachines[0])
                 }}
+                icon={L.divIcon({
+                  className: `custom-marker ${selectedMachine?.id === locationMachines[0].id ? 'selected' : ''}`,
+                  html: `<div class="marker-pin ${statusColor}"></div>`,
+                  iconSize: [30, 42],
+                  iconAnchor: [15, 42]
+                })}
               >
                 <Popup>
-                        <div className="p-2">
-                          <p className="font-medium text-sm">{location}</p>
-                          <p className="text-xs text-muted-foreground">{count} maskine{count > 1 ? 'r' : ''}</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {activeCount > 0 && <Badge className="bg-green-500 text-[10px]">Aktiv: {activeCount}</Badge>}
-                            {maintenanceCount > 0 && <Badge className="bg-yellow-500 text-[10px]">Vedligeholdelse: {maintenanceCount}</Badge>}
-                            {inactiveCount > 0 && <Badge className="bg-red-500 text-[10px]">Inaktiv: {inactiveCount}</Badge>}
-                          </div>
-                        </div>
+                  <div className="p-2">
+                    <p className="font-medium text-sm">{location}</p>
+                    <p className="text-xs text-muted-foreground">{count} maskine{count > 1 ? 'r' : ''}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {activeCount > 0 && <Badge className="bg-green-500 text-[10px]">Aktiv: {activeCount}</Badge>}
+                      {maintenanceCount > 0 && <Badge className="bg-yellow-500 text-[10px]">Vedligeholdelse: {maintenanceCount}</Badge>}
+                      {inactiveCount > 0 && <Badge className="bg-red-500 text-[10px]">Inaktiv: {inactiveCount}</Badge>}
+                    </div>
+                  </div>
                 </Popup>
               </Marker>
-                  );
-                })}
+            );
+          })}
         </MapContainer>
       </CardContent>
     </Card>

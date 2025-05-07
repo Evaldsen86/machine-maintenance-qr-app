@@ -2,61 +2,90 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
-import { Download, Printer, Share2 } from 'lucide-react';
+import { Download, Printer, Share2, Settings2 } from 'lucide-react';
 import QRCode from 'qrcode';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 
 interface MachineQRSectionProps {
   machineId: number;
   machineName: string;
 }
 
+interface QRCodeOptions {
+  width: number;
+  margin: number;
+  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H';
+  color: {
+    dark: string;
+    light: string;
+  };
+}
+
 export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, machineName }) => {
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [showCustomizeDialog, setShowCustomizeDialog] = useState(false);
+  const [qrOptions, setQrOptions] = useState<QRCodeOptions>({
+    width: 300,
+    margin: 2,
+    errorCorrectionLevel: 'H',
+    color: {
+      dark: '#000000',
+      light: '#ffffff',
+    },
+  });
   const MAX_RETRIES = 3;
 
-  useEffect(() => {
-    const generateQRCode = async () => {
-      try {
-        setLoading(true);
-        // Create a more detailed QR code data object
-        const qrData = JSON.stringify({
-          id: machineId,
-          name: machineName,
-          timestamp: new Date().toISOString(),
-        });
+  const generateQRCode = async (options: QRCodeOptions = qrOptions) => {
+    try {
+      setLoading(true);
+      // Create a more detailed QR code data object with additional metadata
+      const qrData = JSON.stringify({
+        id: machineId,
+        name: machineName,
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+        type: 'machine',
+      });
 
-        const qrDataUrl = await QRCode.toDataURL(qrData, {
-          width: 300,
-          margin: 2,
-          errorCorrectionLevel: 'H',
-          color: {
-            dark: '#000000',
-            light: '#ffffff',
-          },
+      const qrDataUrl = await QRCode.toDataURL(qrData, {
+        width: options.width,
+        margin: options.margin,
+        errorCorrectionLevel: options.errorCorrectionLevel,
+        color: options.color,
+      });
+      setQrImage(qrDataUrl);
+      setRetryCount(0); // Reset retry count on success
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      if (retryCount < MAX_RETRIES) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => generateQRCode(options), 1000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        toast({
+          title: 'Fejl ved generering af QR-kode',
+          description: 'Kunne ikke generere QR-koden efter flere forsøg. Prøv venligst igen senere.',
+          variant: 'destructive',
         });
-        setQrImage(qrDataUrl);
-        setRetryCount(0); // Reset retry count on success
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-        if (retryCount < MAX_RETRIES) {
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => generateQRCode(), 1000); // Retry after 1 second
-        } else {
-          toast({
-            title: 'Fejl ved generering af QR-kode',
-            description: 'Kunne ikke generere QR-koden efter flere forsøg. Prøv venligst igen senere.',
-            variant: 'destructive',
-          });
-        }
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     generateQRCode();
-  }, [machineId, machineName, retryCount]);
+  }, [machineId, machineName]);
 
   const handlePrint = () => {
     if (!qrImage) return;
@@ -82,14 +111,38 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
               justify-content: center;
               height: 100vh;
               margin: 0;
+              font-family: Arial, sans-serif;
             }
-            img { max-width: 80%; height: auto; }
-            h1 { font-family: Arial, sans-serif; margin-bottom: 20px; }
+            .container {
+              text-align: center;
+              padding: 20px;
+            }
+            img { 
+              max-width: 80%; 
+              height: auto;
+              margin: 20px 0;
+            }
+            h1 { 
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .info {
+              color: #666;
+              margin-bottom: 20px;
+            }
+            @media print {
+              body { margin: 0; }
+              .container { padding: 0; }
+            }
           </style>
         </head>
         <body>
-          <h1>${machineName}</h1>
-          <img src="${qrImage}" alt="QR Code" />
+          <div class="container">
+            <h1>${machineName}</h1>
+            <div class="info">Machine ID: ${machineId}</div>
+            <img src="${qrImage}" alt="QR Code" />
+            <div class="info">Generated: ${new Date().toLocaleString()}</div>
+          </div>
         </body>
       </html>
     `);
@@ -141,6 +194,12 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
     }
   };
 
+  const handleCustomize = (newOptions: Partial<QRCodeOptions>) => {
+    const updatedOptions = { ...qrOptions, ...newOptions };
+    setQrOptions(updatedOptions);
+    generateQRCode(updatedOptions);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -171,8 +230,66 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
             <Share2 className="mr-2 h-4 w-4" />
             Del
           </Button>
+          <Dialog open={showCustomizeDialog} onOpenChange={setShowCustomizeDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Settings2 className="mr-2 h-4 w-4" />
+                Tilpas
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tilpas QR-kode</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Størrelse</Label>
+                  <Slider
+                    value={[qrOptions.width]}
+                    onValueChange={([value]) => handleCustomize({ width: value })}
+                    min={200}
+                    max={400}
+                    step={10}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Margin</Label>
+                  <Slider
+                    value={[qrOptions.margin]}
+                    onValueChange={([value]) => handleCustomize({ margin: value })}
+                    min={0}
+                    max={4}
+                    step={1}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Farve</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="color"
+                      value={qrOptions.color.dark}
+                      onChange={(e) => handleCustomize({
+                        color: { ...qrOptions.color, dark: e.target.value }
+                      })}
+                      className="w-12 h-12"
+                    />
+                    <Input
+                      type="color"
+                      value={qrOptions.color.light}
+                      onChange={(e) => handleCustomize({
+                        color: { ...qrOptions.color, light: e.target.value }
+                      })}
+                      className="w-12 h-12"
+                    />
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>
   );
 };
+
+export default MachineQRSection;
