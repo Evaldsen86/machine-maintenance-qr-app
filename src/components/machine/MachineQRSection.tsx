@@ -14,7 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { machineOperations, type Machine } from '@/lib/supabase';
+import { machineService, type Machine } from '@/lib/supabase';
 
 interface MachineQRSectionProps {
   machineId: number;
@@ -66,7 +66,7 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
       });
       
       // Save QR options to Supabase
-      await machineOperations.updateMachine(machineId, {
+      await machineService.updateMachine(machineId, {
         qr_data: options
       });
       
@@ -92,7 +92,7 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
   useEffect(() => {
     const loadMachineData = async () => {
       try {
-        const machine = await machineOperations.getMachine(machineId);
+        const machine = await machineService.getMachineById(machineId);
         if (machine.qr_data) {
           setQrOptions(machine.qr_data);
         }
