@@ -2,24 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { openDB } from 'idb';
 
 // These values should be stored in environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your .env file.');
+  throw new Error('Missing Supabase environment variables');
 }
 
 // Create Supabase client with auto-retry and better error handling
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: { 'x-application-name': 'machine-history-qr' }
-  }
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Initialize IndexedDB for offline support
 const initDB = async () => {
@@ -40,6 +31,23 @@ const initDB = async () => {
 
 // Initialize DB
 initDB().catch(console.error);
+
+// Types for our database tables
+export type Machine = {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  qr_data?: {
+    width: number;
+    margin: number;
+    errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H';
+    color: {
+      dark: string;
+      light: string;
+    };
+  };
+};
 
 // Helper functions for machine operations with offline support
 export const machineService = {
@@ -64,7 +72,7 @@ export const machineService = {
         await store.put(machine);
       }
       
-      return data;
+      return data as Machine[];
     } catch (error) {
       console.error('Error fetching machines:', error);
       
@@ -72,7 +80,7 @@ export const machineService = {
       try {
         const db = await initDB();
         const machines = await db.getAll('machines');
-        return machines;
+        return machines as Machine[];
       } catch (offlineError) {
         console.error('Error fetching from IndexedDB:', offlineError);
         throw error;
@@ -81,7 +89,7 @@ export const machineService = {
   },
 
   // Get a single machine by ID
-  getMachineById: async (id: string) => {
+  getMachineById: async (id: number) => {
     const { data, error } = await supabase
       .from('machines')
       .select('*')
@@ -89,36 +97,36 @@ export const machineService = {
       .single();
     
     if (error) throw error;
-    return data;
+    return data as Machine;
   },
 
   // Create a new machine
-  createMachine: async (machineData: any) => {
+  createMachine: async (machine: Omit<Machine, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('machines')
-      .insert(machineData)
+      .insert([machine])
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    return data as Machine;
   },
 
   // Update a machine
-  updateMachine: async (id: string, machineData: any) => {
+  updateMachine: async (id: number, updates: Partial<Machine>) => {
     const { data, error } = await supabase
       .from('machines')
-      .update(machineData)
+      .update(updates)
       .eq('id', id)
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    return data as Machine;
   },
 
   // Delete a machine
-  deleteMachine: async (id: string) => {
+  deleteMachine: async (id: number) => {
     const { error } = await supabase
       .from('machines')
       .delete()
@@ -129,7 +137,7 @@ export const machineService = {
   },
 
   // Add a task to a machine
-  addTask: async (machineId: string, taskData: any) => {
+  addTask: async (machineId: number, taskData: any) => {
     const { data, error } = await supabase
       .from('tasks')
       .insert({ ...taskData, machine_id: machineId })
@@ -141,7 +149,7 @@ export const machineService = {
   },
 
   // Get tasks for a machine
-  getTasks: async (machineId: string) => {
+  getTasks: async (machineId: number) => {
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -153,7 +161,7 @@ export const machineService = {
   },
 
   // Add a maintenance record
-  addMaintenance: async (machineId: string, maintenanceData: any) => {
+  addMaintenance: async (machineId: number, maintenanceData: any) => {
     const { data, error } = await supabase
       .from('maintenance')
       .insert({ ...maintenanceData, machine_id: machineId })
@@ -165,7 +173,7 @@ export const machineService = {
   },
 
   // Get maintenance records for a machine
-  getMaintenance: async (machineId: string) => {
+  getMaintenance: async (machineId: number) => {
     const { data, error } = await supabase
       .from('maintenance')
       .select('*')
@@ -177,7 +185,7 @@ export const machineService = {
   },
 
   // Update oil information
-  updateOilInfo: async (machineId: string, oilInfo: any) => {
+  updateOilInfo: async (machineId: number, oilInfo: any) => {
     const { data, error } = await supabase
       .from('machines')
       .update({ oil_info: oilInfo })
@@ -190,7 +198,7 @@ export const machineService = {
   },
 
   // Generate QR code for a machine
-  generateQRCode: async (machineId: string) => {
+  generateQRCode: async (machineId: number) => {
     const machine = await machineService.getMachineById(machineId);
     
     if (!machine) {

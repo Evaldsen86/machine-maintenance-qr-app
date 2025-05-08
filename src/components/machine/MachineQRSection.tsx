@@ -14,6 +14,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { machineOperations, type Machine } from '@/lib/supabase';
 
 interface MachineQRSectionProps {
   machineId: number;
@@ -49,7 +50,6 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
   const generateQRCode = async (options: QRCodeOptions = qrOptions) => {
     try {
       setLoading(true);
-      // Create a more detailed QR code data object with additional metadata
       const qrData = JSON.stringify({
         id: machineId,
         name: machineName,
@@ -64,13 +64,19 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
         errorCorrectionLevel: options.errorCorrectionLevel,
         color: options.color,
       });
+      
+      // Save QR options to Supabase
+      await machineOperations.updateMachine(machineId, {
+        qr_data: options
+      });
+      
       setQrImage(qrDataUrl);
-      setRetryCount(0); // Reset retry count on success
+      setRetryCount(0);
     } catch (error) {
       console.error('Error generating QR code:', error);
       if (retryCount < MAX_RETRIES) {
         setRetryCount(prev => prev + 1);
-        setTimeout(() => generateQRCode(options), 1000 * (retryCount + 1)); // Exponential backoff
+        setTimeout(() => generateQRCode(options), 1000 * (retryCount + 1));
       } else {
         toast({
           title: 'Fejl ved generering af QR-kode',
@@ -84,7 +90,20 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
   };
 
   useEffect(() => {
-    generateQRCode();
+    const loadMachineData = async () => {
+      try {
+        const machine = await machineOperations.getMachine(machineId);
+        if (machine.qr_data) {
+          setQrOptions(machine.qr_data);
+        }
+        generateQRCode(machine.qr_data || qrOptions);
+      } catch (error) {
+        console.error('Error loading machine data:', error);
+        generateQRCode();
+      }
+    };
+    
+    loadMachineData();
   }, [machineId, machineName]);
 
   const handlePrint = () => {
