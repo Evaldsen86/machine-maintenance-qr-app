@@ -157,7 +157,7 @@ const Navbar: React.FC = () => {
             </Sheet>
             
             <Link to="/" className="flex items-center space-x-2">
-              <Settings className="h-6 w-6" />
+              <img src="/responsive-design_4351724.png" alt="Logo" className="h-8 w-8 object-contain" />
               <span className="inline-block font-bold">Maskine QR System</span>
             </Link>
           </div>
