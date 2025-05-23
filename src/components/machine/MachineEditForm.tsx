@@ -201,13 +201,12 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
 
   const removeSpecification = (equipmentIndex: number, key: string) => {
     const updatedEquipment = [...equipment];
-    const { [key]: removed, ...rest } = updatedEquipment[equipmentIndex].specifications;
-    
+    const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
+    const { [key]: removed, ...rest } = currentSpecs;
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
       specifications: rest
     };
-    
     setEquipment(updatedEquipment);
   };
 
@@ -545,7 +544,7 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                     </div>
                     <AccordionContent>
                       <div className="space-y-6 pr-2">
-                        {Object.entries(equip.specifications).map(([key, value], specIndex) => (
+                        {Object.entries(equip.specifications || {}).map(([key, value], specIndex) => (
                           <div key={`${key}-${specIndex}`} className="flex items-start gap-2">
                             <div className="w-1/3">
                               <CreatableSelect
@@ -565,24 +564,13 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"
                                 styles={{
+                                  menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
+                                  menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
+                                  menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                                   control: (base) => ({ ...base, minHeight: '36px', height: '36px' }),
                                   input: (base) => ({ ...base, margin: '0px', padding: '0px' }),
                                   valueContainer: (base) => ({ ...base, margin: '0px', padding: '0px 8px' }),
-                                  menu: (base) => ({
-                                    ...base,
-                                    zIndex: 2147483647,
-                                    maxHeight: '300px',
-                                  }),
-                                  menuList: (base) => ({
-                                    ...base,
-                                    maxHeight: '300px',
-                                    overflowY: 'auto',
-                                    zIndex: 2147483647,
-                                  }),
-                                  menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                                 }}
-                                menuPortalTarget={null}
-                                menuPosition="absolute"
                                 menuShouldBlockScroll={true}
                                 onCreateOption={(inputValue) => {
                                   handleSpecificationChange(index, key, inputValue, value);
@@ -631,24 +619,13 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                             menuPortalTarget={document.body}
                             menuPosition="fixed"
                             styles={{
+                              menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
+                              menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
+                              menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                               control: (base) => ({ ...base, minHeight: '36px', height: '36px' }),
                               input: (base) => ({ ...base, margin: '0px', padding: '0px' }),
                               valueContainer: (base) => ({ ...base, margin: '0px', padding: '0px 8px' }),
-                              menu: (base) => ({
-                                ...base,
-                                zIndex: 2147483647,
-                                maxHeight: '300px',
-                              }),
-                              menuList: (base) => ({
-                                ...base,
-                                maxHeight: '300px',
-                                overflowY: 'auto',
-                                zIndex: 2147483647,
-                              }),
-                              menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                             }}
-                            menuPortalTarget={null}
-                            menuPosition="absolute"
                             menuShouldBlockScroll={true}
                             onCreateOption={(inputValue) => {
                               const updatedEquipment = [...equipment];

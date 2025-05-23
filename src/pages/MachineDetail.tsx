@@ -22,7 +22,6 @@ import MobileFriendlyViewer from '@/components/machine/MobileFriendlyViewer';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Components
-import Navbar from '@/components/Navbar';
 import MachineOverview from '@/components/MachineOverview';
 import PublicAccessBanner from '@/components/machine/PublicAccessBanner';
 import MachineDetailHeader from '@/components/machine/MachineDetailHeader';
@@ -617,7 +616,6 @@ const MachineDetail = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <Navbar />
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-pulse text-lg text-muted-foreground">Indlæser maskine...</div>
         </div>
@@ -631,7 +629,6 @@ const MachineDetail = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
       {isPublicAccess && <PublicAccessBanner />}
       <MachineDetailHeader 
         machine={machineState} 
