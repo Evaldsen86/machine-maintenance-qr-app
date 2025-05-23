@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -7,18 +6,63 @@ import { ArrowLeft } from 'lucide-react';
 import MachineAddForm from '@/components/machine/MachineAddForm';
 import { Machine } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { machineService } from '@/lib/supabase';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/constants';
 
 const AddMachine = () => {
   const navigate = useNavigate();
   
-  const handleSave = (machine: Machine) => {
-    // In a real app, this would send to a backend
-    // For now, we'll just navigate to the dashboard
-    toast({
-      title: "Maskine oprettet",
-      description: `${machine.name} er blevet oprettet.`,
-    });
-    navigate('/dashboard');
+  const handleSave = async (machine: Machine) => {
+    try {
+      if (!machine.serialNumber) {
+        throw new Error('Serienummer er påkrævet');
+      }
+
+      // Prepare data for Supabase
+      const machineData = {
+        name: machine.name,
+        model: machine.model,
+        serial_number: machine.serialNumber,
+        status: machine.status,
+        equipment: machine.equipment,
+        location: typeof machine.location === 'string' ? machine.location : machine.location?.name,
+        coordinates: machine.coordinates,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const newMachine = await machineService.createMachine(machineData);
+      
+      if (newMachine) {
+        // Store the full machine data in localStorage for offline access
+        const fullMachineData = {
+          ...machine,
+          id: newMachine.id.toString(),
+          created_at: newMachine.created_at,
+          updated_at: newMachine.updated_at
+        };
+        
+        const storedMachines = localStorage.getItem('dashboard_machines');
+        const machines = storedMachines ? JSON.parse(storedMachines) : [];
+        machines.push(fullMachineData);
+        localStorage.setItem('dashboard_machines', JSON.stringify(machines));
+
+        toast({
+          title: SUCCESS_MESSAGES.MACHINE_CREATED,
+          description: `${machine.name} er blevet oprettet.`,
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error('Failed to create machine');
+      }
+    } catch (error) {
+      console.error('Error creating machine:', error);
+      toast({
+        variant: "destructive",
+        title: ERROR_MESSAGES.VALIDATION_ERROR,
+        description: error instanceof Error ? error.message : "Der opstod en fejl ved oprettelse af maskinen. Prøv venligst igen.",
+      });
+    }
   };
   
   return (

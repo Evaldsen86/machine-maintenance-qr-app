@@ -1,4 +1,3 @@
-
 // Fix for the TaskStatus in mockData.ts
 import { Equipment, LubricationRecord, Machine, ServiceRecord, Task, User, Document, OilType, UserRole, Location } from '@/types';
 
@@ -474,10 +473,16 @@ export const getLubricationHistoryByMachineAndType = (
 
 export const getTasksByMachineAndType = (
   machineId: string,
-  type: string
+  type: string | undefined
 ): Task[] => {
   const machine = getMachineById(machineId);
-  return machine?.tasks.filter(task => task.equipmentType === type) || [];
+  if (!machine) return [];
+  
+  // If no type is selected, return all tasks
+  if (!type) return machine.tasks || [];
+  
+  // Otherwise filter by equipment type
+  return machine.tasks.filter(task => task.equipmentType === type) || [];
 };
 
 export const getDocumentsByMachineId = (

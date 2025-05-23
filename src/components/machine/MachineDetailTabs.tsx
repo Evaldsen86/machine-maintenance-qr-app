@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,7 +62,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
         <TabsList className="grid w-full grid-cols-1 md:grid-cols-3">
           <TabsTrigger value="service">
             <Wrench className="h-4 w-4 mr-2" />
-            Service
+            Service & Vedligeholdelse
           </TabsTrigger>
           {(isAuthenticated || isPublicAccess) && (
             <>

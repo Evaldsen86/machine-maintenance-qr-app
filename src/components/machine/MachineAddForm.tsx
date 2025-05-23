@@ -3,12 +3,21 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from "@/components/ui/use-toast";
-import { Machine, Equipment, EquipmentType, Model3D } from '@/types';
+import { Machine, Equipment, EquipmentType, Model3D, type Location as MachineLocation, MachineStatus, Task, MaintenanceSchedule } from '@/types';
 import { PlusCircle, Trash2, Upload, Image, Boxes } from 'lucide-react';
 import LocationEditSection from './LocationEditSection';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { equipmentTranslations } from '@/utils/equipmentTranslations';
 import { addDays } from 'date-fns';
+import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
+import {
+  Select as UISelect,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from "@/components/ui/select";
 
 import {
   Form,
@@ -20,13 +29,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   DialogHeader,
   DialogFooter,
@@ -42,9 +44,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Navn skal være mindst 2 tegn" }),
-  model: z.string().min(2, { message: "Model skal være mindst 2 tegn" }),
-  status: z.enum(["active", "maintenance", "inactive"]),
+  name: z.string().min(1, "Navn er påkrævet"),
+  model: z.string().min(1, "Model er påkrævet"),
+  serialNumber: z.string().min(1, "Serienummer er påkrævet"),
+  status: z.enum(["active", "maintenance", "inactive"] as const),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -63,9 +66,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
       id: `equipment-${Date.now()}`,
       type: "truck",
       model: "Standard Model",
-      specifications: {
-        "Specifikation": ""
-      },
+      specifications: {},
       images: []
     }
   ]);
@@ -75,17 +76,20 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
   const [showAddEquipment, setShowAddEquipment] = useState(false);
   const [newEquipmentType, setNewEquipmentType] = useState<EquipmentType>("truck");
   const [newEquipmentModel, setNewEquipmentModel] = useState("");
-  const [location, setLocation] = useState<string | undefined>("Hovedkvarter");
+  const [location, setLocation] = useState<string | MachineLocation | undefined>("Hovedkvarter");
   const [coordinates, setCoordinates] = useState<{lat: number; lng: number} | undefined>({
     lat: 55.676098,
     lng: 12.568337
   });
+  const [newSpec, setNewSpec] = useState<{ value: string, label: string } | null>(null);
+  const [newSpecInput, setNewSpecInput] = useState("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       model: "",
+      serialNumber: "",
       status: "active",
     },
   });
@@ -100,51 +104,19 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
       return;
     }
     
-    const defaultSchedules = equipment.map(equip => {
-      let interval = 'monthly';
-      let days = 30;
-      
-      if (equip.type === 'crane') {
-        interval = 'biweekly';
-        days = 14;
-      } else if (equip.type === 'truck') {
-        interval = 'monthly';
-        days = 30;
-      } else if (equip.type === 'winch') {
-        interval = 'quarterly';
-        days = 90;
-      }
-      
-      return {
-        id: `schedule-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        equipmentType: equip.type,
-        taskDescription: `Regelmæssig vedligeholdelse af ${equip.type}`,
-        interval: interval as 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom',
-        intervalUnit: 'days' as 'days' | 'weeks' | 'months' | 'years',
-        customInterval: days,
-        nextDue: addDays(new Date(), days).toISOString(),
-      };
-    });
+    const updatedEquipment = equipment.map(equip => ({
+      ...equip,
+      images: equip === equipment[0] ? [...images] : equip.images
+    }));
     
-    const initialTasks = equipment.map(equip => ({
-      id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      title: `Vedligeholdelse af ${equip.type}`,
-      description: `Rutine vedligeholdelse af ${equip.type}`,
-      dueDate: addDays(new Date(), equip.type === 'crane' ? 14 : equip.type === 'winch' ? 90 : 30).toISOString(),
-      status: 'pending' as const,
-      equipmentType: equip.type
-    }));
-
-    const updatedEquipment = equipment.map(eq => ({
-      ...eq,
-      images: [...eq.images, ...images],
-      models3D: models3D.length > 0 ? models3D : undefined
-    }));
+    const initialTasks: Task[] = [];
+    const defaultSchedules: MaintenanceSchedule[] = [];
     
     const newMachine: Machine = {
       id: `machine-${Date.now()}`,
       name: values.name,
       model: values.model,
+      serialNumber: values.serialNumber,
       status: values.status,
       equipment: updatedEquipment,
       serviceHistory: [],
@@ -156,7 +128,10 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
       documents: [],
       oils: [],
       createdAt: new Date().toISOString(),
-      editPermissions: ['admin', 'mechanic', 'technician']
+      editPermissions: ['admin', 'mechanic', 'technician'],
+      year: undefined,
+      qrCode: '',
+      brand: '',
     };
     
     onSave(newMachine);
@@ -167,33 +142,61 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
     });
   };
 
+  const commonSpecifications = [
+    "Engine",
+    "Weight",
+    "Capacity",
+    "Fuel Consumption",
+    "Power",
+    "Speed",
+    "Dimensions",
+    "Material",
+    "Operating Temperature",
+    "Pressure",
+    "Voltage",
+    "Current",
+    "Frequency",
+    "Efficiency",
+    "Noise Level",
+    "Warranty",
+    "Maintenance Interval",
+    "Operating Hours",
+    "Manufacturer",
+    "Model Year"
+  ];
+
+  const specificationOptions = commonSpecifications.map(spec => ({
+    value: spec,
+    label: spec
+  }));
+
   const handleSpecificationChange = (equipmentIndex: number, oldKey: string, newKey: string, value: string) => {
     const updatedEquipment = [...equipment];
-    const specifications = { ...updatedEquipment[equipmentIndex].specifications };
-    
-    if (oldKey === newKey) {
-      specifications[oldKey] = value;
-    } else {
-      delete specifications[oldKey];
-      specifications[newKey] = value;
-    }
+    const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
+    const { [oldKey]: removed, ...rest } = currentSpecs;
     
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
-      specifications
+      specifications: {
+        ...rest,
+        [newKey]: value
+      }
     };
     
     setEquipment(updatedEquipment);
   };
 
-  const addSpecification = (equipmentIndex: number, key: string) => {
+  const addSpecification = (equipmentIndex: number, selectedOption: { value: string, label: string } | null) => {
+    if (!selectedOption) return;
+    
     const updatedEquipment = [...equipment];
+    const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
     
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
       specifications: {
-        ...updatedEquipment[equipmentIndex].specifications,
-        [key]: ""
+        ...currentSpecs,
+        [selectedOption.value]: ""
       }
     };
     
@@ -202,7 +205,8 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
 
   const removeSpecification = (equipmentIndex: number, key: string) => {
     const updatedEquipment = [...equipment];
-    const { [key]: removed, ...rest } = updatedEquipment[equipmentIndex].specifications;
+    const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
+    const { [key]: removed, ...rest } = currentSpecs;
     
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
@@ -221,13 +225,6 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
     setEquipment(updatedEquipment);
   };
 
-  const commonSpecifications = [
-    "Engine",
-    "Weight",
-    "Capacity",
-    "Fuel Consumption"
-  ];
-
   const addEquipment = () => {
     if (!newEquipmentModel) {
       toast({
@@ -242,9 +239,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
       id: `equipment-${Date.now()}`,
       type: newEquipmentType,
       model: newEquipmentModel,
-      specifications: {
-        "Specifikation": ""
-      },
+      specifications: {},
       images: []
     };
 
@@ -302,7 +297,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
 
   const removeImage = (url: string) => {
     setImages(images.filter(img => img !== url));
-    setModels3D(models3D.filter(model => model.thumbnail !== url));
+    setModels3D(models3D.filter(model => model.thumbnailUrl !== url));
     toast({
       title: "Billede fjernet",
       description: "Billedet er blevet fjernet fra maskinen.",
@@ -314,6 +309,27 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
   };
 
   const equipmentTypes = Object.entries(equipmentTranslations);
+
+  const handleLocationChange = (newLocation: string | MachineLocation | undefined, newCoordinates: {lat: number; lng: number} | undefined) => {
+    setLocation(newLocation);
+    setCoordinates(newCoordinates);
+  };
+
+  const handleNewSpecification = (equipmentIndex: number, value: string) => {
+    if (value.trim() === '') return;
+    
+    const updatedEquipment = [...equipment];
+    const specifications = { ...updatedEquipment[equipmentIndex].specifications };
+    specifications[value] = '';
+    
+    updatedEquipment[equipmentIndex] = {
+      ...updatedEquipment[equipmentIndex],
+      specifications
+    };
+    
+    setEquipment(updatedEquipment);
+    setNewSpecInput('');
+  };
 
   return (
     <div>
@@ -356,25 +372,37 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
 
           <FormField
             control={form.control}
+            name="serialNumber"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Serienummer</FormLabel>
+                <FormControl>
+                  <Input placeholder="Maskinens serienummer" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="status"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Status</FormLabel>
-                <Select
+                <UISelect
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                 >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vælg status" />
-                    </SelectTrigger>
-                  </FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vælg status" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Aktiv</SelectItem>
                     <SelectItem value="maintenance">Vedligeholdelse</SelectItem>
                     <SelectItem value="inactive">Inaktiv</SelectItem>
                   </SelectContent>
-                </Select>
+                </UISelect>
                 <FormMessage />
               </FormItem>
             )}
@@ -401,7 +429,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium">Type</label>
-                    <Select
+                    <UISelect
                       value={newEquipmentType}
                       onValueChange={(value) => setNewEquipmentType(value as EquipmentType)}
                     >
@@ -417,7 +445,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                           ))}
                         </ScrollArea>
                       </SelectContent>
-                    </Select>
+                    </UISelect>
                   </div>
                   <div>
                     <label className="text-sm font-medium">Model</label>
@@ -472,14 +500,57 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                     </div>
                     <AccordionContent>
                       <div className="space-y-3">
-                        {Object.entries(equip.specifications).map(([key, value], specIndex) => (
+                        {Object.entries(equip.specifications as Record<string, string>).map(([key, value], specIndex) => (
                           <div key={`${key}-${specIndex}`} className="flex items-center gap-2">
-                            <Input 
-                              value={key} 
-                              onChange={(e) => handleSpecificationChange(index, key, e.target.value, value)}
-                              className="w-1/3" 
-                              placeholder="Specifikation"
-                            />
+                            <div className="w-1/3">
+                              <CreatableSelect
+                                options={specificationOptions}
+                                value={{ value: key, label: key }}
+                                onChange={(newValue) => {
+                                  if (newValue) {
+                                    handleSpecificationChange(index, key, newValue.value, value);
+                                  }
+                                }}
+                                isSearchable
+                                isClearable
+                                placeholder="Vælg eller skriv specifikation..."
+                                classNamePrefix="react-select"
+                                formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
+                                isValidNewOption={(inputValue) => inputValue.length > 0}
+                                styles={{
+                                  control: (base) => ({
+                                    ...base,
+                                    minHeight: '36px',
+                                    height: '36px'
+                                  }),
+                                  input: (base) => ({
+                                    ...base,
+                                    margin: '0px',
+                                    padding: '0px'
+                                  }),
+                                  valueContainer: (base) => ({
+                                    ...base,
+                                    margin: '0px',
+                                    padding: '0px 8px'
+                                  }),
+                                  menu: (base) => ({
+                                    ...base,
+                                    zIndex: 99999,
+                                    maxHeight: '200px'
+                                  }),
+                                  menuList: (base) => ({
+                                    ...base,
+                                    maxHeight: '200px'
+                                  }),
+                                  menuPortal: base => ({ ...base, zIndex: 99999 })
+                                }}
+                                menuPortalTarget={typeof window !== 'undefined' ? window.document.body : undefined}
+                                menuPosition="fixed"
+                                onCreateOption={(inputValue) => {
+                                  handleSpecificationChange(index, key, inputValue, value);
+                                }}
+                              />
+                            </div>
                             <Input 
                               value={value} 
                               onChange={(e) => handleSpecificationChange(index, key, key, e.target.value)}
@@ -496,23 +567,54 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                             </Button>
                           </div>
                         ))}
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => clearSpecifications(index)}
-                          className="mt-2"
-                        >
-                          Clear All Specifications
-                        </Button>
-                        <Select 
-                          onValueChange={(value) => addSpecification(index, value)}
-                          placeholder="Select a specification"
-                        >
-                          {commonSpecifications.map((spec) => (
-                            <SelectItem key={spec} value={spec}>{spec}</SelectItem>
-                          ))}
-                        </Select>
+                        <div className="mt-2">
+                          <CreatableSelect
+                            options={specificationOptions}
+                            onChange={(selected) => {
+                              if (selected) {
+                                addSpecification(index, selected);
+                              }
+                            }}
+                            isSearchable
+                            isClearable
+                            placeholder="Tilføj eller skriv ny specifikation..."
+                            classNamePrefix="react-select"
+                            formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
+                            isValidNewOption={(inputValue) => inputValue.length > 0}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '36px',
+                                height: '36px'
+                              }),
+                              input: (base) => ({
+                                ...base,
+                                margin: '0px',
+                                padding: '0px'
+                              }),
+                              valueContainer: (base) => ({
+                                ...base,
+                                margin: '0px',
+                                padding: '0px 8px'
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                zIndex: 99999,
+                                maxHeight: '200px'
+                              }),
+                              menuList: (base) => ({
+                                ...base,
+                                maxHeight: '200px'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 99999 })
+                            }}
+                            menuPortalTarget={typeof window !== 'undefined' ? window.document.body : undefined}
+                            menuPosition="fixed"
+                            onCreateOption={(inputValue) => {
+                              addSpecification(index, { value: inputValue, label: inputValue });
+                            }}
+                          />
+                        </div>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -537,7 +639,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                   </div>
                   <span className="truncate flex-1 text-sm">{img}</span>
                   <div className="flex gap-1 items-center">
-                    {models3D.some(model => model.thumbnail === img) && (
+                    {models3D.some(model => model.thumbnailUrl === img) && (
                       <div className="bg-blue-500/70 text-white px-2 py-1 rounded text-xs flex items-center">
                         <Boxes className="h-3 w-3 mr-1" />
                         3D

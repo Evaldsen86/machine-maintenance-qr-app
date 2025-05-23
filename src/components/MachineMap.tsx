@@ -34,6 +34,7 @@ interface MachineMapProps {
 }
 
 const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSelectMachine }) => {
+  console.log('MachineMap rendrer!');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const isMobile = useIsMobile();
 
@@ -85,6 +86,21 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSe
     }
   };
 
+  console.log('filteredMachines:', filteredMachines);
+  filteredMachines.forEach((machine, idx) => {
+    let coordinates = machine.coordinates;
+    if (!coordinates && machine.location) {
+      const locName = typeof machine.location === 'string' ? machine.location : machine.location.name;
+      coordinates = getLocationCoordinates(locName);
+    }
+    console.log(`Maskine #${idx}:`, machine.name, 'Koordinater:', coordinates);
+  });
+
+  // Helper til at lave en unik nøgle for koordinater
+  function coordKey(lat: number, lng: number) {
+    return `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  }
+
   return (
     <Card className="w-full h-[600px] overflow-hidden">
       <CardHeader className="p-4 pb-0">
@@ -103,7 +119,7 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSe
           </CardTitle>
           
           {/* Location filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative z-50">
             <Select
               value={selectedLocation}
               onValueChange={setSelectedLocation}
@@ -111,7 +127,7 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSe
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Vælg lokation" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999]">
                 <ScrollArea className="h-60">
                   <SelectItem value="all">Alle lokationer</SelectItem>
                   {allLocations.map((location) => (
@@ -145,56 +161,52 @@ const MachineMap: React.FC<MachineMapProps> = ({ machines, selectedMachine, onSe
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-          
-          {Object.entries(machinesByLocation).map(([location, locationMachines]) => {
-            if (selectedLocation !== 'all' && selectedLocation !== location) {
-              return null;
-            }
-            
-            const coordinates = getLocationCoordinates(location);
-            if (!coordinates) return null;
-            
-            const count = locationMachines.length;
-            const statuses = locationMachines.map(m => m.status);
-            const activeCount = statuses.filter(s => s === 'active').length;
-            const maintenanceCount = statuses.filter(s => s === 'maintenance').length;
-            const inactiveCount = statuses.filter(s => s === 'inactive').length;
-            
-            let statusColor = 'green';
-            if (inactiveCount > activeCount && inactiveCount > maintenanceCount) {
-              statusColor = 'red';
-            } else if (maintenanceCount > activeCount) {
-              statusColor = 'yellow';
-            }
-            
-            return (
+          {/* Grupper maskiner efter koordinater */}
+          {(() => {
+            const coordGroups: Record<string, {lat: number, lng: number, machines: Machine[]}> = {};
+            filteredMachines.forEach(machine => {
+              let coordinates = machine.coordinates;
+              if (!coordinates && machine.location) {
+                const locName = typeof machine.location === 'string' ? machine.location : machine.location.name;
+                coordinates = getLocationCoordinates(locName);
+              }
+              if (!coordinates) return;
+              const key = coordKey(coordinates.lat, coordinates.lng);
+              if (!coordGroups[key]) {
+                coordGroups[key] = { lat: coordinates.lat, lng: coordinates.lng, machines: [] };
+              }
+              coordGroups[key].machines.push(machine);
+            });
+            return Object.values(coordGroups).map((group, idx) => (
               <Marker
-                key={location}
-                position={[coordinates.lat, coordinates.lng]}
-                eventHandlers={{
-                  click: () => onSelectMachine && onSelectMachine(locationMachines[0])
-                }}
+                key={group.lat + ',' + group.lng}
+                position={[group.lat, group.lng]}
                 icon={L.divIcon({
-                  className: `custom-marker ${selectedMachine?.id === locationMachines[0].id ? 'selected' : ''}`,
-                  html: `<div class="marker-pin ${statusColor}"></div>`,
+                  className: `custom-marker`,
+                  html: `<div class=\"marker-pin bg-green-500\"></div>`,
                   iconSize: [30, 42],
                   iconAnchor: [15, 42]
                 })}
               >
                 <Popup>
-                  <div className="p-2">
-                    <p className="font-medium text-sm">{location}</p>
-                    <p className="text-xs text-muted-foreground">{count} maskine{count > 1 ? 'r' : ''}</p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {activeCount > 0 && <Badge className="bg-green-500 text-[10px]">Aktiv: {activeCount}</Badge>}
-                      {maintenanceCount > 0 && <Badge className="bg-yellow-500 text-[10px]">Vedligeholdelse: {maintenanceCount}</Badge>}
-                      {inactiveCount > 0 && <Badge className="bg-red-500 text-[10px]">Inaktiv: {inactiveCount}</Badge>}
-                    </div>
+                  <div className="p-2 min-w-[180px]">
+                    <div className="font-medium mb-2">Maskiner på denne placering:</div>
+                    <ul className="space-y-1">
+                      {group.machines.map((machine) => (
+                        <li key={machine.id} className="flex items-center gap-2">
+                          <span className="font-semibold">{machine.name}</span>
+                          <span className="text-xs text-muted-foreground">({machine.status})</span>
+                          <Button size="sm" variant="outline" onClick={() => onSelectMachine && onSelectMachine(machine)}>
+                            Vælg
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </Popup>
               </Marker>
-            );
-          })}
+            ));
+          })()}
         </MapContainer>
       </CardContent>
     </Card>

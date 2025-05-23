@@ -20,7 +20,7 @@ import {
 interface ImageUploadBoxProps {
   onUpload: (imageUrl: string) => void;
   onUpload3D?: (model: Model3D) => void;
-  onDeleteExistingImage?: () => void;
+  onDeleteExistingImage?: (index: number) => void;
   existingImages?: string[];
 }
 
@@ -222,9 +222,9 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
     fileInputRef.current?.click();
   };
   
-  const handleDeleteExistingImage = () => {
+  const handleDeleteExistingImage = (index: number) => {
     if (onDeleteExistingImage) {
-      onDeleteExistingImage();
+      onDeleteExistingImage(index);
       toast({
         title: "Billede slettet",
         description: "Billedet er blevet fjernet fra maskinen",
@@ -373,7 +373,7 @@ const ImageUploadBox: React.FC<ImageUploadBoxProps> = ({
                   variant="destructive" 
                   size="icon" 
                   className="absolute top-1 right-1 h-6 w-6 bg-black/60 hover:bg-black/80"
-                  onClick={() => handleDeleteExistingImage()}
+                  onClick={() => handleDeleteExistingImage(index)}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

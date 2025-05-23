@@ -126,19 +126,6 @@ const Navbar: React.FC = () => {
                     <>
                       <SheetClose asChild>
                         <Link 
-                          to="/add-machine" 
-                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
-                            isActive('/add-machine') 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'hover:bg-secondary'
-                          }`}
-                        >
-                          <FilePlus className="h-4 w-4" />
-                          Tilføj maskine
-                        </Link>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <Link 
                           to="/settings" 
                           className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
                             isActive('/settings') 
@@ -197,17 +184,6 @@ const Navbar: React.FC = () => {
                 </Button>
                 {user && user.role === 'admin' && (
                   <>
-                    <Link 
-                      to="/add-machine" 
-                      className={`text-sm font-medium transition-colors hover:text-primary ${
-                        isActive('/add-machine') ? 'text-primary' : 'text-muted-foreground'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1">
-                        <FilePlus className="h-4 w-4 mr-1" />
-                        Tilføj maskine
-                      </div>
-                    </Link>
                     <Link 
                       to="/settings" 
                       className={`text-sm font-medium transition-colors hover:text-primary ${

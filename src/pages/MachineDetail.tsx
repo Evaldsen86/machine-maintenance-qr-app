@@ -640,7 +640,7 @@ const MachineDetail = () => {
         onView3D={() => setShow3DDialog(true)}
       />
       
-      <main className="flex-1 page-container py-8">
+      <main className="flex-1 page-container py-8 overflow-y-auto">
         {/* Always show MobileFriendlyViewer on mobile devices or QR code visits */}
         {(comingFromQRCode || isMobile) && machineState && (
           <MobileFriendlyViewer machine={machineState} />
@@ -673,18 +673,20 @@ const MachineDetail = () => {
       </main>
       
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
             <DialogTitle>Rediger maskine</DialogTitle>
             <DialogDescription>
               Foretag ændringer til maskinens informationer.
             </DialogDescription>
           </DialogHeader>
-          <MachineEditForm
-            machine={machineState}
-            onSave={handleSaveMachine}
-            onCancel={() => setShowEditDialog(false)}
-          />
+          <div className="flex-1 overflow-y-auto">
+            <MachineEditForm
+              machine={machineState}
+              onSave={handleSaveMachine}
+              onCancel={() => setShowEditDialog(false)}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 

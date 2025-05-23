@@ -17,7 +17,9 @@ export interface User {
 export interface Location {
   id?: string;
   name: string;
-  address: string;
+  address?: string;
+  postalCode?: string;
+  country?: string;
   lat?: number;
   lon?: number;
 }
@@ -58,6 +60,19 @@ export interface Machine {
   images?: string[];
   models3D?: Model3D[];
   qrCode?: string;
+  qr_data?: {
+    width: number;
+    margin: number;
+    errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H';
+    color: {
+      dark: string;
+      light: string;
+    };
+    format: 'png' | 'svg' | 'pdf';
+    includeLogo: boolean;
+    logoSize: number;
+    logoUrl?: string;
+  };
   editPermissions?: UserRole[];
   createdAt?: string;
 }
@@ -145,6 +160,10 @@ export interface Document {
   description?: string;
   uploadDate?: string;
   accessPermissions?: UserRole[];
+  viewRoles?: UserRole[];
+  downloadRoles?: UserRole[];
+  viewUsers?: string[];
+  downloadUsers?: string[];
 }
 
 export interface Model3D {

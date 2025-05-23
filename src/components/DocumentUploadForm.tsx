@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Form,
   FormField,
@@ -22,20 +21,37 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Document } from "@/types";
+import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DocumentUploadFormProps {
   onSave: (document: Document) => void;
   onCancel: () => void;
 }
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'image/jpeg',
+  'image/png'
+];
+
 const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ 
   onSave, 
   onCancel 
 }) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const formSchema = z.object({
     title: z.string().min(2, "Titlen skal være mindst 2 tegn."),
     type: z.enum(["manual", "service", "certification", "other"]),
-    fileUrl: z.string().url("Indtast en gyldig URL."),
     description: z.string().optional(),
   });
 
@@ -44,35 +60,85 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     defaultValues: {
       title: "",
       type: "manual",
-      fileUrl: "",
       description: "",
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // In a real app, the document would be uploaded to a server
-    // For now we just create a new document object
-    const newDocument: Document = {
-      id: `doc-${Date.now()}`, // Generate a simple ID
-      title: values.title,
-      type: values.type as "manual" | "service" | "certification" | "other",
-      fileUrl: values.fileUrl,
-      url: values.fileUrl, // Set url same as fileUrl
-      description: values.description,
-      uploadedAt: new Date().toISOString(),
-      uploadDate: new Date().toISOString(), // For backward compatibility
-      fileName: values.fileUrl.split('/').pop() || `document-${Date.now()}.pdf`,
-      uploadedBy: 'Current User',
-      accessPermissions: ['admin', 'mechanic', 'technician'], // Default permissions
-      accessLevel: 'public',
-    };
-    
-    onSave(newDocument);
-    
-    toast({
-      title: "Dokument uploadet",
-      description: "Dokumentet er blevet tilføjet til maskinen.",
-    });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Filen er for stor. Maksimal størrelse er 10MB.",
+      });
+      return;
+    }
+
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Filtypen er ikke understøttet. Tilladte formater: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG",
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!selectedFile) {
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Vælg venligst en fil at uploade.",
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Here you would typically upload the file to your server/storage
+      // For now, we'll create a mock URL
+      const mockFileUrl = URL.createObjectURL(selectedFile);
+
+      const newDocument: Document = {
+        id: `doc-${Date.now()}`,
+        title: values.title,
+        type: values.type,
+        fileUrl: mockFileUrl,
+        url: mockFileUrl,
+        description: values.description,
+        uploadedAt: new Date().toISOString(),
+        uploadDate: new Date().toISOString(),
+        fileName: selectedFile.name,
+        uploadedBy: 'Current User',
+        accessPermissions: ['admin', 'mechanic', 'technician'],
+        accessLevel: 'public',
+      };
+      
+      onSave(newDocument);
+      
+      toast({
+        title: "Dokument uploadet",
+        description: "Dokumentet er blevet tilføjet til maskinen.",
+      });
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Der opstod en fejl under upload af dokumentet.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -122,22 +188,39 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="fileUrl"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dokument URL</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="https://example.com/document.pdf" 
-                    {...field} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="space-y-2">
+            <FormLabel>Dokument</FormLabel>
+            <div 
+              className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:border-primary transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+              />
+              
+              {selectedFile ? (
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{selectedFile.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <p className="font-medium">Klik her eller træk en fil hertil</p>
+                  <p className="text-sm text-muted-foreground">
+                    Understøtter PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG op til 10MB
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
 
           <FormField
             control={form.control}
@@ -156,11 +239,21 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
             )}
           />
 
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Dokumenter skal være i et af følgende formater: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG
+              og må ikke overstige 10MB.
+            </AlertDescription>
+          </Alert>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Annuller
             </Button>
-            <Button type="submit">Upload dokument</Button>
+            <Button type="submit" disabled={isUploading}>
+              {isUploading ? "Uploader..." : "Upload dokument"}
+            </Button>
           </div>
         </form>
       </Form>

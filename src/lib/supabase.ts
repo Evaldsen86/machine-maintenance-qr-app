@@ -5,12 +5,60 @@ import { openDB } from 'idb';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
+// Validate environment variables
+const validateEnvVariables = () => {
+  const missingVars = [];
+  
+  if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+  
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(', ')}. ` +
+      'Please check your .env file and ensure all required variables are set.'
+    );
+  }
+  
+  // Validate URL format
+  try {
+    new URL(supabaseUrl);
+  } catch (error) {
+    throw new Error('Invalid Supabase URL format in VITE_SUPABASE_URL');
+  }
+  
+  // Validate key format (should be a non-empty string)
+  if (typeof supabaseAnonKey !== 'string' || supabaseAnonKey.trim().length === 0) {
+    throw new Error('Invalid Supabase anonymous key format in VITE_SUPABASE_ANON_KEY');
+  }
+};
+
+// Validate environment variables before creating client
+validateEnvVariables();
 
 // Create Supabase client with auto-retry and better error handling
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'x-application-name': 'machine-history-qr'
+    }
+  }
+});
+
+// Add error handling for Supabase client
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') {
+    console.log('User signed out');
+  } else if (event === 'SIGNED_IN') {
+    console.log('User signed in');
+  } else if (event === 'TOKEN_REFRESHED') {
+    console.log('Token refreshed');
+  }
+});
 
 // Initialize IndexedDB for offline support
 const initDB = async () => {
@@ -36,6 +84,8 @@ initDB().catch(console.error);
 export type Machine = {
   id: number;
   name: string;
+  model: string;
+  serial_number: string;
   created_at: string;
   updated_at: string;
   qr_data?: {
@@ -46,6 +96,10 @@ export type Machine = {
       dark: string;
       light: string;
     };
+    format: 'png' | 'svg' | 'pdf';
+    includeLogo: boolean;
+    logoSize: number;
+    logoUrl?: string;
   };
 };
 

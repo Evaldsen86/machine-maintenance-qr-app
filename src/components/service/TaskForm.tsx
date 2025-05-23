@@ -236,19 +236,27 @@ const TaskForm: React.FC<TaskFormProps> = ({
               <FormItem>
                 <FormLabel>Tildel til (valgfrit)</FormLabel>
                 <FormControl>
-                  <Select
-                    onValueChange={(value) => form.setValue('assignedTo', value)}
-                    placeholder="Select a user"
-                  >
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
-                    ))}
-                  </Select>
-                  <Input
-                    placeholder="Or enter a name manually"
-                    value={form.watch('assignedTo')}
-                    onChange={(e) => form.setValue('assignedTo', e.target.value)}
-                  />
+                  {users.some(u => u.name === form.watch('assignedTo')) ? (
+                    <Select
+                      onValueChange={(value) => form.setValue('assignedTo', value)}
+                      value={form.watch('assignedTo')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vælg person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      placeholder="Eller indtast navn manuelt"
+                      value={form.watch('assignedTo')}
+                      onChange={(e) => form.setValue('assignedTo', e.target.value)}
+                    />
+                  )}
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -139,18 +139,25 @@ export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpe
       console.error("Error loading 3D model:", error);
       
       if (retryCount < 3) {
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Exponential backoff with max 8s
         setRetryCount(prev => prev + 1);
+        
+        toast({
+          title: "Forsøger igen",
+          description: `Indlæser 3D-model igen (forsøg ${retryCount + 1}/3)...`,
+        });
+        
         setTimeout(() => {
           setIsLoadingModel(true);
           if (selectedModel) {
             debug3DModel(selectedModel);
           }
-        }, 1000 * (retryCount + 1));
+        }, delay);
       } else {
         toast({
           variant: "destructive",
           title: "Fejl ved indlæsning af 3D-model",
-          description: "Der opstod en fejl under indlæsning af 3D-modellen. Prøv venligst igen.",
+          description: "Kunne ikke indlæse 3D-modellen efter flere forsøg. Kontroller venligst din internetforbindelse og prøv igen senere.",
         });
         setIsLoadingModel(false);
       }
@@ -161,16 +168,24 @@ export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpe
       if (modelViewerElement) {
         modelViewerElement.addEventListener('load', handleModelLoad);
         modelViewerElement.addEventListener('error', handleModelError);
+        
+        // Add timeout for initial load
+        const loadTimeout = setTimeout(() => {
+          if (isLoadingModel) {
+            handleModelError(new Error('Model load timeout'));
+          }
+        }, 30000); // 30 second timeout
+        
+        return () => {
+          if (modelViewerElement) {
+            modelViewerElement.removeEventListener('load', handleModelLoad);
+            modelViewerElement.removeEventListener('error', handleModelError);
+          }
+          clearTimeout(loadTimeout);
+        };
       }
-      
-      return () => {
-        if (modelViewerElement) {
-          modelViewerElement.removeEventListener('load', handleModelLoad);
-          modelViewerElement.removeEventListener('error', handleModelError);
-        }
-      };
     }
-  }, [modelViewerLoaded, selectedModel, retryCount, toast]);
+  }, [modelViewerLoaded, selectedModel, retryCount, toast, isLoadingModel]);
 
   const handleARView = () => {
     if (!selectedModel) {

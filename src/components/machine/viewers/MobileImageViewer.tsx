@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ImageIcon } from 'lucide-react';
+import { toast } from "@/components/ui/use-toast";
 
 interface MobileImageViewerProps {
   images: string[];
@@ -20,23 +21,42 @@ const MobileImageViewer: React.FC<MobileImageViewerProps> = ({ images, alt }) =>
     setRetryCount(new Array(images.length).fill(0));
     setImagesLoaded(new Array(images.length).fill(false));
     
+    // Preload next image
+    if (hasImages) {
+      const nextIndex = (currentImageIndex + 1) % images.length;
+      const nextImage = new Image();
+      nextImage.src = images[nextIndex];
+    }
+    
     return () => {
       if (imageTimeoutRef.current) {
         clearTimeout(imageTimeoutRef.current);
       }
     };
-  }, [images.length]);
+  }, [images.length, currentImageIndex, hasImages, images]);
 
   const currentImage = hasImages ? images[currentImageIndex] : null;
 
   const nextImage = () => {
     if (!hasImages) return;
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % images.length);
+    const nextIndex = (currentImageIndex + 1) % images.length;
+    setCurrentImageIndex(nextIndex);
+    
+    // Preload the image after next
+    const afterNextIndex = (nextIndex + 1) % images.length;
+    const afterNextImage = new Image();
+    afterNextImage.src = images[afterNextIndex];
   };
 
   const prevImage = () => {
     if (!hasImages) return;
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
+    const prevIndex = (currentImageIndex - 1 + images.length) % images.length;
+    setCurrentImageIndex(prevIndex);
+    
+    // Preload the image before previous
+    const beforePrevIndex = (prevIndex - 1 + images.length) % images.length;
+    const beforePrevImage = new Image();
+    beforePrevImage.src = images[beforePrevIndex];
   };
 
   const handleImageError = () => {
@@ -44,11 +64,13 @@ const MobileImageViewer: React.FC<MobileImageViewerProps> = ({ images, alt }) =>
     console.error("Attempted URL:", currentImage);
     setImageError(true);
     
-    // Try to reload with a delay
+    // Try to reload with exponential backoff
     if (retryCount[currentImageIndex] < 3) {
       if (imageTimeoutRef.current) {
         clearTimeout(imageTimeoutRef.current);
       }
+      
+      const delay = Math.min(1000 * Math.pow(2, retryCount[currentImageIndex]), 8000);
       
       imageTimeoutRef.current = setTimeout(() => {
         console.log(`Attempting to recover image (${retryCount[currentImageIndex] + 1}/3)`);
@@ -58,7 +80,13 @@ const MobileImageViewer: React.FC<MobileImageViewerProps> = ({ images, alt }) =>
           updated[currentImageIndex] = updated[currentImageIndex] + 1;
           return updated;
         });
-      }, 1000 * (retryCount[currentImageIndex] + 1));
+      }, delay);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Fejl ved indlæsning af billede",
+        description: "Kunne ikke indlæse billedet efter flere forsøg. Kontroller venligst din internetforbindelse og prøv igen senere.",
+      });
     }
   };
 

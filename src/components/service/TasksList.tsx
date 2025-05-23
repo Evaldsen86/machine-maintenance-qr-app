@@ -45,7 +45,8 @@ interface TasksListProps {
   onTaskComplete?: (taskId: string, completedBy: string) => void;
 }
 
-const TasksList: React.FC<TasksListProps> = ({ tasks, onTaskComplete }) => {
+const TasksList: React.FC<TasksListProps> = ({ tasks: rawTasks, onTaskComplete }) => {
+  const tasks = Array.isArray(rawTasks) ? rawTasks : [];
   const { user, canMarkLubrication, hasPermission } = useAuth();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [completedBy, setCompletedBy] = useState<string>('');
@@ -105,9 +106,9 @@ const TasksList: React.FC<TasksListProps> = ({ tasks, onTaskComplete }) => {
     );
   }
   
-  // Filter tasks by status
-  const completedTasks = tasks.filter(task => task.status === 'completed');
-  const pendingTasks = tasks.filter(task => task.status !== 'completed');
+  // Filter tasks by status, fallback to 'pending' if missing
+  const completedTasks = tasks.filter(task => (task.status || 'pending') === 'completed');
+  const pendingTasks = tasks.filter(task => (task.status || 'pending') !== 'completed');
   
   return (
     <div className="space-y-6">
@@ -116,54 +117,59 @@ const TasksList: React.FC<TasksListProps> = ({ tasks, onTaskComplete }) => {
           <h3 className="text-sm font-medium text-muted-foreground">Kommende Opgaver</h3>
           <div className="space-y-4">
             {pendingTasks.map((task) => {
-              const statusDetails = getStatusDetails(task.status);
-              
-              return (
-                <div 
-                  key={task.id} 
-                  className="flex flex-col p-4 border rounded-lg bg-card"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="mr-2">
-                        {translateType(task.equipmentType)}
-                      </Badge>
-                      <Badge variant={statusDetails.variant}>
-                        {statusDetails.label}
-                      </Badge>
+              try {
+                const statusDetails = getStatusDetails(task.status || 'pending');
+                return (
+                  <div 
+                    key={task.id || Math.random()}
+                    className="flex flex-col p-4 border rounded-lg bg-card"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="mr-2">
+                          {translateType(task.equipmentType || 'truck')}
+                        </Badge>
+                        <Badge variant={statusDetails.variant}>
+                          {statusDetails.label}
+                        </Badge>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenCompleteDialog(task)}>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Markér som fuldført
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenCompleteDialog(task)}>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Markér som fuldført
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <h4 className="font-medium mb-1">{task.title}</h4>
-                  <p className="text-sm mb-2">{task.description}</p>
-                  
-                  <div className="flex flex-wrap items-center gap-4 mt-2 text-muted-foreground text-xs">
-                    <span className="flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      Deadline: {new Date(task.dueDate).toLocaleDateString('da-DK')}
-                    </span>
-                    {task.assignedTo && (
+                    <h4 className="font-medium mb-1">{task.title || 'Ingen titel'}</h4>
+                    <p className="text-sm mb-2">{task.description || ''}</p>
+                    <div className="flex flex-wrap items-center gap-4 mt-2 text-muted-foreground text-xs">
                       <span className="flex items-center">
-                        <User className="h-3 w-3 mr-1" />
-                        Ansvarlig: {task.assignedTo}
+                        <Clock className="h-3 w-3 mr-1" />
+                        Deadline: {task.dueDate ? new Date(task.dueDate).toLocaleDateString('da-DK') : 'Ukendt'}
                       </span>
-                    )}
+                      {task.assignedTo && (
+                        <span className="flex items-center">
+                          <User className="h-3 w-3 mr-1" />
+                          Ansvarlig: {task.assignedTo}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              } catch (err) {
+                return (
+                  <div key={task.id || Math.random()} className="p-4 border rounded-lg bg-red-50 text-red-700">
+                    Fejl ved visning af opgave.
+                  </div>
+                );
+              }
             })}
           </div>
         </div>

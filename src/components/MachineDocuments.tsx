@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -33,6 +32,7 @@ import DocumentUploadForm from './DocumentUploadForm';
 import DocumentPermissionsDialog from './DocumentPermissionsDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from "@/components/ui/use-toast";
+import { mockUsers } from '@/data/mockData';
 
 interface MachineDocumentsProps {
   documents: Document[];
@@ -72,6 +72,28 @@ const MachineDocuments: React.FC<MachineDocumentsProps> = ({
       return doc.allowedUsers.includes(user.id);
     }
     
+    return false;
+  };
+
+  // Returns true if the user can view the document
+  const canViewDocument = (doc: Document): boolean => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (doc.viewRoles && doc.viewRoles.includes(user.role)) return true;
+    if (doc.viewUsers && doc.viewUsers.includes(user.id)) return true;
+    // Fallback to old logic for backwards compatibility
+    if (!doc.viewRoles && !doc.viewUsers) return hasAccessToDocument(doc);
+    return false;
+  };
+
+  // Returns true if the user can download the document
+  const canDownloadDocument = (doc: Document): boolean => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (doc.downloadRoles && doc.downloadRoles.includes(user.role)) return true;
+    if (doc.downloadUsers && doc.downloadUsers.includes(user.id)) return true;
+    // Fallback to old logic for backwards compatibility
+    if (!doc.downloadRoles && !doc.downloadUsers) return hasAccessToDocument(doc);
     return false;
   };
 
@@ -115,8 +137,14 @@ const MachineDocuments: React.FC<MachineDocumentsProps> = ({
   };
 
   const getAccessLevelInfo = (doc: Document) => {
+    // If there are explicit viewRoles or viewUsers, treat as restricted
+    if ((doc.viewRoles && doc.viewRoles.length > 0) || (doc.viewUsers && doc.viewUsers.length > 0)) {
+      return {
+        icon: <Lock className="h-4 w-4 text-amber-500" />,
+        text: 'Begrænset adgang'
+      };
+    }
     const accessLevel = doc.accessLevel || 'public';
-    
     switch(accessLevel) {
       case 'public':
         return {
@@ -220,10 +248,11 @@ const MachineDocuments: React.FC<MachineDocumentsProps> = ({
         {sortedDocuments.length > 0 ? (
           <div className="space-y-4">
             {sortedDocuments.map((document) => {
-              const hasAccess = hasAccessToDocument(document);
+              const canView = canViewDocument(document);
+              const canDownload = canDownloadDocument(document);
               const accessInfo = getAccessLevelInfo(document);
               
-              return hasAccess ? (
+              return canView ? (
                 <div 
                   key={document.id} 
                   className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-lg hover:bg-muted/20 transition-colors"
@@ -263,15 +292,17 @@ const MachineDocuments: React.FC<MachineDocumentsProps> = ({
                         <span className="hidden sm:inline">Tilladelser</span>
                       </Button>
                     )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center gap-1"
-                      onClick={() => handleDocumentDownload(document)}
-                    >
-                      <Download className="h-4 w-4" />
-                      <span>Hent</span>
-                    </Button>
+                    {canDownload && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-1"
+                        onClick={() => handleDocumentDownload(document)}
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>Hent</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : null;
@@ -298,7 +329,12 @@ const MachineDocuments: React.FC<MachineDocumentsProps> = ({
           document={selectedDocument}
           isOpen={isPermissionsDialogOpen}
           onClose={() => setIsPermissionsDialogOpen(false)}
-          onSave={handleUpdateDocumentPermissions}
+          onSave={(permissions) => {
+            if (onDocumentUpdate && selectedDocument) {
+              onDocumentUpdate({ ...selectedDocument, ...permissions });
+            }
+            setIsPermissionsDialogOpen(false);
+          }}
         />
       )}
     </Card>
