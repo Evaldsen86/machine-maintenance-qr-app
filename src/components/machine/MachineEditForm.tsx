@@ -561,15 +561,15 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                                 classNamePrefix="react-select"
                                 formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
                                 isValidNewOption={(inputValue) => inputValue.length > 0}
-                                menuPortalTarget={document.body}
-                                menuPosition="fixed"
+                                menuPortalTarget={null}
+                                menuPosition="absolute"
                                 styles={{
-                                  menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
-                                  menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
-                                  menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                                   control: (base) => ({ ...base, minHeight: '36px', height: '36px' }),
                                   input: (base) => ({ ...base, margin: '0px', padding: '0px' }),
                                   valueContainer: (base) => ({ ...base, margin: '0px', padding: '0px 8px' }),
+                                  menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
+                                  menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
+                                  menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                                 }}
                                 menuShouldBlockScroll={true}
                                 onCreateOption={(inputValue) => {
@@ -616,15 +616,15 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                             classNamePrefix="react-select"
                             formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
                             isValidNewOption={(inputValue) => inputValue.length > 0}
-                            menuPortalTarget={document.body}
-                            menuPosition="fixed"
+                            menuPortalTarget={null}
+                            menuPosition="absolute"
                             styles={{
-                              menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
-                              menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
-                              menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                               control: (base) => ({ ...base, minHeight: '36px', height: '36px' }),
                               input: (base) => ({ ...base, margin: '0px', padding: '0px' }),
                               valueContainer: (base) => ({ ...base, margin: '0px', padding: '0px 8px' }),
+                              menu: (base) => ({ ...base, zIndex: 2147483647, maxHeight: '300px' }),
+                              menuList: (base) => ({ ...base, maxHeight: '300px', overflowY: 'auto', zIndex: 2147483647 }),
+                              menuPortal: (base) => ({ ...base, zIndex: 2147483647 }),
                             }}
                             menuShouldBlockScroll={true}
                             onCreateOption={(inputValue) => {
