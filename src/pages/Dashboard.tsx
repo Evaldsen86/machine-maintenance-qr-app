@@ -21,7 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Navbar from '@/components/Navbar';
 import MachineCard from '@/components/MachineCard';
 import MachineMap from '@/components/MachineMap';
 import MachineAddForm from '@/components/machine/MachineAddForm';
@@ -147,8 +146,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
       <main className="flex-1">
         <div className="page-container">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
