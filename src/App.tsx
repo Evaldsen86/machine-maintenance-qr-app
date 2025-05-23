@@ -13,6 +13,7 @@ import Settings from "./pages/Settings";
 import AddMachine from "./pages/AddMachine";
 import UserManagement from "./pages/UserManagement";
 import { useState } from "react";
+import Navbar from "@/components/Navbar";
 
 // Create a query client with better config for offline/local storage use cases
 const createQueryClient = () => new QueryClient({
@@ -111,6 +112,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <Navbar />
           <AppRoutes />
         </TooltipProvider>
       </AuthProvider>
