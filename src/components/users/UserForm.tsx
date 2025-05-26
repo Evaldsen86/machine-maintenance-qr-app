@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +129,41 @@ const UserForm: React.FC<UserFormProps> = ({
             </FormItem>
           )}
         />
+        {/* Rettigheder */}
+        <div className="flex gap-6">
+          <FormField
+            control={form.control}
+            name="canRegisterService"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={!!field.value}
+                    onChange={e => field.onChange(e.target.checked)}
+                  />
+                </FormControl>
+                <FormLabel className="mb-0">Må registrere service</FormLabel>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="canRegisterLubrication"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={!!field.value}
+                    onChange={e => field.onChange(e.target.checked)}
+                  />
+                </FormControl>
+                <FormLabel className="mb-0">Må registrere smøring</FormLabel>
+              </FormItem>
+            )}
+          />
+        </div>
         
         <DialogFooter className="pt-4">
           <Button variant="outline" type="button" onClick={onCancel}>

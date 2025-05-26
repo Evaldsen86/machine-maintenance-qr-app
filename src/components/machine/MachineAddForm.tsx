@@ -83,6 +83,7 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
   });
   const [newSpec, setNewSpec] = useState<{ value: string, label: string } | null>(null);
   const [newSpecInput, setNewSpecInput] = useState("");
+  const [autoFocusSpecKey, setAutoFocusSpecKey] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -143,26 +144,26 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
   };
 
   const commonSpecifications = [
-    "Engine",
-    "Weight",
-    "Capacity",
-    "Fuel Consumption",
-    "Power",
-    "Speed",
-    "Dimensions",
-    "Material",
-    "Operating Temperature",
-    "Pressure",
-    "Voltage",
-    "Current",
-    "Frequency",
-    "Efficiency",
-    "Noise Level",
-    "Warranty",
-    "Maintenance Interval",
-    "Operating Hours",
-    "Manufacturer",
-    "Model Year"
+    "Motor",
+    "Vægt",
+    "Kapacitet",
+    "Brændstofforbrug",
+    "Effekt",
+    "Hastighed",
+    "Dimensioner",
+    "Materiale",
+    "Arbejdstemperatur",
+    "Tryk",
+    "Spænding",
+    "Strømstyrke",
+    "Frekvens",
+    "Effektivitet",
+    "Støjniveau",
+    "Garanti",
+    "Vedligeholdelsesinterval",
+    "Driftstimer",
+    "Producent",
+    "Modelår"
   ];
 
   const specificationOptions = commonSpecifications.map(spec => ({
@@ -188,10 +189,16 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
 
   const addSpecification = (equipmentIndex: number, selectedOption: { value: string, label: string } | null) => {
     if (!selectedOption) return;
-    
     const updatedEquipment = [...equipment];
     const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
-    
+    if (currentSpecs[selectedOption.value] !== undefined) {
+      toast({
+        variant: "destructive",
+        title: "Specifikationen findes allerede",
+        description: `Specifikationen '${selectedOption.value}' er allerede tilføjet.`,
+      });
+      return;
+    }
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
       specifications: {
@@ -199,8 +206,8 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
         [selectedOption.value]: ""
       }
     };
-    
     setEquipment(updatedEquipment);
+    setAutoFocusSpecKey(selectedOption.value);
   };
 
   const removeSpecification = (equipmentIndex: number, key: string) => {
@@ -332,188 +339,256 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold mb-2">Tilføj Ny Maskine</h2>
-        <p className="text-muted-foreground">
-          Indtast detaljer for den nye maskine herunder.
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <main className="flex-1 page-container py-8">
+        <div>
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold mb-2">Tilføj Ny Maskine</h2>
+            <p className="text-muted-foreground">
+              Indtast detaljer for den nye maskine herunder.
+            </p>
+          </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Navn</FormLabel>
-                <FormControl>
-                  <Input placeholder="Maskinens navn" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Navn</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Maskinens navn" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="model"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Model</FormLabel>
-                <FormControl>
-                  <Input placeholder="Maskinens model" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="model"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Model</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Maskinens model" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="serialNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Serienummer</FormLabel>
-                <FormControl>
-                  <Input placeholder="Maskinens serienummer" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name="serialNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Serienummer</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Maskinens serienummer" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <UISelect
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Vælg status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Aktiv</SelectItem>
-                    <SelectItem value="maintenance">Vedligeholdelse</SelectItem>
-                    <SelectItem value="inactive">Inaktiv</SelectItem>
-                  </SelectContent>
-                </UISelect>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="space-y-4 mt-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-md font-medium">Udstyr</h3>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowAddEquipment(true)}
-                className={showAddEquipment ? "hidden" : ""}
-              >
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Tilføj Udstyr
-              </Button>
-            </div>
-
-            {showAddEquipment && (
-              <div className="border p-4 rounded-lg space-y-3">
-                <h4 className="font-medium">Nyt Udstyr</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium">Type</label>
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
                     <UISelect
-                      value={newEquipmentType}
-                      onValueChange={(value) => setNewEquipmentType(value as EquipmentType)}
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Vælg status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <ScrollArea className="h-60">
-                          {equipmentTypes.map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </ScrollArea>
+                        <SelectItem value="active">Aktiv</SelectItem>
+                        <SelectItem value="maintenance">Vedligeholdelse</SelectItem>
+                        <SelectItem value="inactive">Inaktiv</SelectItem>
                       </SelectContent>
                     </UISelect>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Model</label>
-                    <Input 
-                      value={newEquipmentModel} 
-                      onChange={(e) => setNewEquipmentModel(e.target.value)}
-                      placeholder="Model"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="space-y-4 mt-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-md font-medium">Udstyr</h3>
                   <Button 
                     type="button" 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setShowAddEquipment(false)}
+                    onClick={() => setShowAddEquipment(true)}
+                    className={showAddEquipment ? "hidden" : ""}
                   >
-                    Annuller
-                  </Button>
-                  <Button 
-                    type="button" 
-                    size="sm" 
-                    onClick={addEquipment}
-                  >
-                    Tilføj
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Tilføj Udstyr
                   </Button>
                 </div>
-              </div>
-            )}
-            
-            {equipment.length === 0 ? (
-              <div className="text-center p-4 border border-dashed rounded-lg">
-                <p className="text-muted-foreground">Ingen udstyr tilføjet endnu. Klik på "Tilføj Udstyr" for at begynde.</p>
-              </div>
-            ) : (
-              <Accordion type="single" collapsible className="w-full">
-                {equipment.map((equip, index) => (
-                  <AccordionItem key={index} value={`equipment-${index}`}>
-                    <div className="flex items-center justify-between">
-                      <AccordionTrigger className="flex-1">
-                        {getEquipmentTypeName(equip.type)} - {equip.model}
-                      </AccordionTrigger>
+
+                {showAddEquipment && (
+                  <div className="border p-4 rounded-lg space-y-3">
+                    <h4 className="font-medium">Nyt Udstyr</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium">Type</label>
+                        <UISelect
+                          value={newEquipmentType}
+                          onValueChange={(value) => setNewEquipmentType(value as EquipmentType)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <ScrollArea className="h-60">
+                              {equipmentTypes.map(([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </ScrollArea>
+                          </SelectContent>
+                        </UISelect>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Model</label>
+                        <Input 
+                          value={newEquipmentModel} 
+                          onChange={(e) => setNewEquipmentModel(e.target.value)}
+                          placeholder="Model"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
                       <Button 
                         type="button" 
-                        variant="ghost" 
+                        variant="outline" 
                         size="sm" 
-                        onClick={() => removeEquipment(index)}
-                        className="h-8 mr-2"
+                        onClick={() => setShowAddEquipment(false)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        Annuller
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={addEquipment}
+                      >
+                        Tilføj
                       </Button>
                     </div>
-                    <AccordionContent>
-                      <div className="space-y-3">
-                        {Object.entries(equip.specifications as Record<string, string>).map(([key, value], specIndex) => (
-                          <div key={`${key}-${specIndex}`} className="flex items-center gap-2">
-                            <div className="w-1/3">
+                  </div>
+                )}
+                
+                {equipment.length === 0 ? (
+                  <div className="text-center p-4 border border-dashed rounded-lg">
+                    <p className="text-muted-foreground">Ingen udstyr tilføjet endnu. Klik på "Tilføj Udstyr" for at begynde.</p>
+                  </div>
+                ) : (
+                  <Accordion type="single" collapsible className="w-full">
+                    {equipment.map((equip, index) => (
+                      <AccordionItem key={index} value={`equipment-${index}`}>
+                        <div className="flex items-center justify-between">
+                          <AccordionTrigger className="flex-1">
+                            {getEquipmentTypeName(equip.type)} - {equip.model}
+                          </AccordionTrigger>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => removeEquipment(index)}
+                            className="h-8 mr-2"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            {Object.entries(equip.specifications as Record<string, string>).map(([key, value], specIndex) => (
+                              <div key={`${key}-${specIndex}`} className="flex items-center gap-2">
+                                <div className="w-1/3">
+                                  <CreatableSelect
+                                    options={specificationOptions}
+                                    value={{ value: key, label: key }}
+                                    onChange={(newValue) => {
+                                      if (newValue) {
+                                        handleSpecificationChange(index, key, newValue.value, value);
+                                      }
+                                    }}
+                                    isSearchable
+                                    isClearable
+                                    placeholder="Vælg eller skriv specifikation..."
+                                    classNamePrefix="react-select"
+                                    formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
+                                    isValidNewOption={(inputValue) => inputValue.length > 0}
+                                    styles={{
+                                      control: (base) => ({
+                                        ...base,
+                                        minHeight: '36px',
+                                        height: '36px'
+                                      }),
+                                      input: (base) => ({
+                                        ...base,
+                                        margin: '0px',
+                                        padding: '0px'
+                                      }),
+                                      valueContainer: (base) => ({
+                                        ...base,
+                                        margin: '0px',
+                                        padding: '0px 8px'
+                                      }),
+                                      menu: (base) => ({
+                                        ...base,
+                                        zIndex: 99999,
+                                        maxHeight: '200px'
+                                      }),
+                                      menuList: (base) => ({
+                                        ...base,
+                                        maxHeight: '200px'
+                                      }),
+                                      menuPortal: base => ({ ...base, zIndex: 99999 })
+                                    }}
+                                    menuPortalTarget={typeof window !== 'undefined' ? window.document.body : undefined}
+                                    menuPosition="fixed"
+                                    onCreateOption={(inputValue) => {
+                                      addSpecification(index, { value: inputValue, label: inputValue });
+                                    }}
+                                  />
+                                </div>
+                                <Input 
+                                  value={value} 
+                                  onChange={(e) => handleSpecificationChange(index, key, key, e.target.value)}
+                                  className="w-full"
+                                  placeholder="Værdi"
+                                  autoFocus={autoFocusSpecKey === key}
+                                  onBlur={() => setAutoFocusSpecKey(null)}
+                                />
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  size="icon" 
+                                  onClick={() => removeSpecification(index, key)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <div className="mt-2">
                               <CreatableSelect
                                 options={specificationOptions}
-                                value={{ value: key, label: key }}
-                                onChange={(newValue) => {
-                                  if (newValue) {
-                                    handleSpecificationChange(index, key, newValue.value, value);
+                                onChange={(selected) => {
+                                  if (selected) {
+                                    addSpecification(index, selected);
                                   }
                                 }}
                                 isSearchable
                                 isClearable
-                                placeholder="Vælg eller skriv specifikation..."
+                                placeholder="Tilføj eller skriv ny specifikation..."
                                 classNamePrefix="react-select"
                                 formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
                                 isValidNewOption={(inputValue) => inputValue.length > 0}
@@ -547,143 +622,81 @@ const MachineAddForm: React.FC<MachineAddFormProps> = ({
                                 menuPortalTarget={typeof window !== 'undefined' ? window.document.body : undefined}
                                 menuPosition="fixed"
                                 onCreateOption={(inputValue) => {
-                                  handleSpecificationChange(index, key, inputValue, value);
+                                  addSpecification(index, { value: inputValue, label: inputValue });
                                 }}
                               />
                             </div>
-                            <Input 
-                              value={value} 
-                              onChange={(e) => handleSpecificationChange(index, key, key, e.target.value)}
-                              className="w-full"
-                              placeholder="Værdi"
-                            />
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="icon" 
-                              onClick={() => removeSpecification(index, key)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
                           </div>
-                        ))}
-                        <div className="mt-2">
-                          <CreatableSelect
-                            options={specificationOptions}
-                            onChange={(selected) => {
-                              if (selected) {
-                                addSpecification(index, selected);
-                              }
-                            }}
-                            isSearchable
-                            isClearable
-                            placeholder="Tilføj eller skriv ny specifikation..."
-                            classNamePrefix="react-select"
-                            formatCreateLabel={(inputValue) => `Opret "${inputValue}"`}
-                            isValidNewOption={(inputValue) => inputValue.length > 0}
-                            styles={{
-                              control: (base) => ({
-                                ...base,
-                                minHeight: '36px',
-                                height: '36px'
-                              }),
-                              input: (base) => ({
-                                ...base,
-                                margin: '0px',
-                                padding: '0px'
-                              }),
-                              valueContainer: (base) => ({
-                                ...base,
-                                margin: '0px',
-                                padding: '0px 8px'
-                              }),
-                              menu: (base) => ({
-                                ...base,
-                                zIndex: 99999,
-                                maxHeight: '200px'
-                              }),
-                              menuList: (base) => ({
-                                ...base,
-                                maxHeight: '200px'
-                              }),
-                              menuPortal: base => ({ ...base, zIndex: 99999 })
-                            }}
-                            menuPortalTarget={typeof window !== 'undefined' ? window.document.body : undefined}
-                            menuPosition="fixed"
-                            onCreateOption={(inputValue) => {
-                              addSpecification(index, { value: inputValue, label: inputValue });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            )}
-          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                )}
+              </div>
 
-          <div className="space-y-4 mt-6">
-            <h3 className="text-md font-medium">Billeder</h3>
-            
-            <div className="space-y-4">
-              <ImageUploadBox 
-                onUpload={handleImageUpload}
-                onUpload3D={handle3DModelUpload} 
-              />
-              
-              {images.map((img, index) => (
-                <div key={`new-${index}`} className="flex items-center gap-2">
-                  <div className="w-16 h-16 bg-muted rounded flex-shrink-0">
-                    <img src={img} alt="Machine" className="w-full h-full object-cover rounded" />
-                  </div>
-                  <span className="truncate flex-1 text-sm">{img}</span>
-                  <div className="flex gap-1 items-center">
-                    {models3D.some(model => model.thumbnailUrl === img) && (
-                      <div className="bg-blue-500/70 text-white px-2 py-1 rounded text-xs flex items-center">
-                        <Boxes className="h-3 w-3 mr-1" />
-                        3D
+              <div className="space-y-4 mt-6">
+                <h3 className="text-md font-medium">Billeder</h3>
+                
+                <div className="space-y-4">
+                  <ImageUploadBox 
+                    onUpload={handleImageUpload}
+                    onUpload3D={handle3DModelUpload} 
+                  />
+                  
+                  {images.map((img, index) => (
+                    <div key={`new-${index}`} className="flex items-center gap-2">
+                      <div className="w-16 h-16 bg-muted rounded flex-shrink-0">
+                        <img src={img} alt="Machine" className="w-full h-full object-cover rounded" />
                       </div>
-                    )}
+                      <span className="truncate flex-1 text-sm">{img}</span>
+                      <div className="flex gap-1 items-center">
+                        {models3D.some(model => model.thumbnailUrl === img) && (
+                          <div className="bg-blue-500/70 text-white px-2 py-1 rounded text-xs flex items-center">
+                            <Boxes className="h-3 w-3 mr-1" />
+                            3D
+                          </div>
+                        )}
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => removeImage(img)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Billede URL" 
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="flex-1"
+                    />
                     <Button 
                       type="button" 
                       variant="outline" 
-                      size="icon" 
-                      onClick={() => removeImage(img)}
+                      onClick={addImage}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Image className="h-4 w-4 mr-2" />
+                      Tilføj
                     </Button>
                   </div>
                 </div>
-              ))}
-              
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="Billede URL" 
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="flex-1"
-                />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={addImage}
-                >
-                  <Image className="h-4 w-4 mr-2" />
-                  Tilføj
-                </Button>
               </div>
-            </div>
-          </div>
 
-          <div className="flex justify-end gap-2 mt-6">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Annuller
-            </Button>
-            <Button type="submit">Gem maskine</Button>
-          </div>
-        </form>
-      </Form>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button type="button" variant="outline" onClick={onCancel}>
+                  Annuller
+                </Button>
+                <Button type="submit">Gem maskine</Button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </main>
     </div>
   );
 };

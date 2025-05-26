@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -6,7 +5,6 @@ import { AlertCircle, ArrowLeft, Home, Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
-import Navbar from '@/components/Navbar';
 
 const MachineNotFound: React.FC = () => {
   const navigate = useNavigate();
@@ -14,7 +12,6 @@ const MachineNotFound: React.FC = () => {
   
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
       <main className="flex-1 page-container flex flex-col items-center justify-center py-12">
         <Alert variant="destructive" className="max-w-md mx-auto">
           <AlertCircle className="h-4 w-4" />

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
 import { 
   Card, 
   CardContent, 
@@ -272,8 +271,6 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
       <main className="flex-1 page-container py-8">
         <div className="flex items-center justify-between mb-8">
           <div>

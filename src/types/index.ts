@@ -12,6 +12,8 @@ export interface User {
   skills?: string[];
   notes?: string;
   passcode?: string;
+  canRegisterService?: boolean;
+  canRegisterLubrication?: boolean;
 }
 
 export interface Location {

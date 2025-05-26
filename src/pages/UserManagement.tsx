@@ -1,6 +1,4 @@
-
 import React, { useState } from 'react';
-import Navbar from '@/components/Navbar';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -46,7 +44,9 @@ const UserManagement: React.FC = () => {
       role: "driver",
       phone: "",
       passcode: "",
-      notes: ""
+      notes: "",
+      canRegisterService: false,
+      canRegisterLubrication: false,
     }
   });
   
@@ -59,7 +59,9 @@ const UserManagement: React.FC = () => {
       role: "driver",
       phone: "",
       passcode: "",
-      notes: ""
+      notes: "",
+      canRegisterService: false,
+      canRegisterLubrication: false,
     }
   });
   
@@ -79,7 +81,9 @@ const UserManagement: React.FC = () => {
       phone: values.phone || undefined,
       profileImage: null,
       passcode: values.passcode || undefined,
-      notes: values.notes || undefined
+      notes: values.notes || undefined,
+      canRegisterService: values.canRegisterService || false,
+      canRegisterLubrication: values.canRegisterLubrication || false,
     };
     
     setUsers([...users, newUserObj]);
@@ -101,7 +105,9 @@ const UserManagement: React.FC = () => {
       role: user.role,
       phone: user.phone || "",
       passcode: user.passcode || "",
-      notes: user.notes || ""
+      notes: user.notes || "",
+      canRegisterService: user.canRegisterService || false,
+      canRegisterLubrication: user.canRegisterLubrication || false,
     });
     setShowEditUserDialog(true);
   };
@@ -121,7 +127,9 @@ const UserManagement: React.FC = () => {
       role: values.role as User['role'],
       phone: values.phone || undefined,
       passcode: values.passcode || undefined,
-      notes: values.notes || undefined
+      notes: values.notes || undefined,
+      canRegisterService: values.canRegisterService || false,
+      canRegisterLubrication: values.canRegisterLubrication || false,
     };
     
     setUsers(users.map(user => user.id === selectedUser.id ? updatedUser : user));
@@ -147,8 +155,6 @@ const UserManagement: React.FC = () => {
   
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
       <main className="flex-1">
         <div className="page-container py-6">
           <UserManagementHeader />

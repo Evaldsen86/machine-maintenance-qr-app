@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,7 +47,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
 
-import Navbar from '@/components/Navbar';
 import { useAuth } from '@/hooks/useAuth';
 
 // Form schema for profile update
@@ -167,8 +165,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
       <main className="flex-1 container py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Profile sidebar */}

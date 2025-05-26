@@ -1,4 +1,3 @@
-
 import { User, UserRole } from '@/types';
 import { z } from 'zod';
 
@@ -14,7 +13,9 @@ export const userFormSchema = z.object({
   passcode: z.string().min(4, { message: "Adgangskode skal være mindst 4 tegn."})
       .max(10, { message: "Adgangskode må maksimalt være 10 tegn."})
       .optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  canRegisterService: z.boolean().optional(),
+  canRegisterLubrication: z.boolean().optional(),
 });
 
 export type UserFormValues = z.infer<typeof userFormSchema>;
