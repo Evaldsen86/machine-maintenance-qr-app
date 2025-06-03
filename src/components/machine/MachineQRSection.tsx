@@ -41,6 +41,26 @@ interface QRCodeOptions {
 }
 
 export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, machineName }) => {
+  // Defensive check for required props
+  if (!machineId || !machineName) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>QR-kode</CardTitle>
+          <CardDescription>Maskineoplysninger mangler. Kan ikke generere QR-kode.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <AlertDescription>
+              Maskin-ID eller navn mangler. QR-kode kan ikke genereres.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
