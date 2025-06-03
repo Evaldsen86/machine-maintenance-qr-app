@@ -193,7 +193,19 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
       setQrImage(qrDataUrl);
       setRetryCount(0);
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      // Enhanced error logging for debugging
+      console.error('Error generating QR code:', {
+        error,
+        machineId,
+        machineName,
+        options,
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+      toast({
+        title: 'Fejl ved generering af QR-kode',
+        description: error instanceof Error ? error.message : String(error),
+        variant: 'destructive',
+      });
       if (retryCount < MAX_RETRIES) {
         setRetryCount(prev => prev + 1);
         setTimeout(() => generateQRCode(options), 1000 * (retryCount + 1));
