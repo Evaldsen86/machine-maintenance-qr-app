@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -127,7 +126,7 @@ const MachineInfoCards: React.FC<MachineInfoCardsProps> = ({ machine }) => {
             </div>
             <div className="space-y-2">
               <div className="font-medium">Antal servicebesøg</div>
-              <div className="text-muted-foreground">{machine.serviceHistory.length}</div>
+              <div className="text-muted-foreground">{machine.serviceHistory?.length ?? 0}</div>
             </div>
             <div className="space-y-2">
               <div className="font-medium">Næste inspektion</div>
@@ -179,7 +178,7 @@ const MachineInfoCards: React.FC<MachineInfoCardsProps> = ({ machine }) => {
             </DialogDescription>
           </DialogHeader>
           <div className="p-2">
-            <MachineQRSection machine={machine} />
+            <MachineQRSection machine={machine as import('@/types').Machine} />
           </div>
         </DialogContent>
       </Dialog>

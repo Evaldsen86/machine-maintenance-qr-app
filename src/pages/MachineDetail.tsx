@@ -120,11 +120,11 @@ const MachineDetail = () => {
         const allMachines = getAllMachines();
         
         // Try to find the machine with the exact ID first
-        let foundMachine = allMachines.find(m => m.id === id);
+        let foundMachine = allMachines.find(m => m.id === (id || ''));
         
         // If not found and we have a timestamp, try without it
         if (!foundMachine && timestamp) {
-          const cleanId = id.split('&t=')[0];
+          const cleanId = (id || '').split('&t=')[0];
           foundMachine = allMachines.find(m => m.id === cleanId);
         }
         
@@ -136,7 +136,10 @@ const MachineDetail = () => {
             console.log("No 3D models found directly on machine");
           }
           
-          // Ensure machine has images property
+          // Ensure all required fields for Machine type
+          if (!('serialNumber' in foundMachine)) foundMachine.serialNumber = '';
+          if (!('createdAt' in foundMachine)) (foundMachine as any).createdAt = '';
+          if (!('updatedAt' in foundMachine)) (foundMachine as any).updatedAt = '';
           if (!foundMachine.images) {
             foundMachine.images = [];
           }

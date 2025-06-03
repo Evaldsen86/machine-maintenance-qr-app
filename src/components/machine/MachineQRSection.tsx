@@ -22,8 +22,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
 interface MachineQRSectionProps {
-  machineId: number;
-  machineName: string;
+  machine: Machine;
 }
 
 interface QRCodeOptions {
@@ -40,9 +39,9 @@ interface QRCodeOptions {
   logoUrl?: string;
 }
 
-export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, machineName }) => {
+export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machine }) => {
   // Defensive check for required props
-  if (!machineId || !machineName) {
+  if (!machine || !machine.id || !machine.name) {
     return (
       <Card>
         <CardHeader>
@@ -61,6 +60,8 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machineId, m
     );
   }
 
+  const machineId = machine.id;
+  const machineName = machine.name;
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
