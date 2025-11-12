@@ -9,7 +9,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon } from 'lucide-react';
+import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon, Clock } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -25,13 +25,12 @@ import MachineCard from '@/components/MachineCard';
 import MachineMap from '@/components/MachineMap';
 import MachineAddForm from '@/components/machine/MachineAddForm';
 import { BatchQRGenerator } from '@/components/machine/BatchQRGenerator';
+import TaskOverview from '@/components/dashboard/TaskOverview';
 import { useAuth } from '@/hooks/useAuth';
-import { mockMachines } from '@/data/mockData';
+import { useMachines } from '@/hooks/useMachines';
 import QRScanner from '@/components/QRScanner';
 import { Machine } from '@/types';
 import { toast } from "@/components/ui/use-toast";
-
-const LOCAL_STORAGE_KEY = 'dashboard_machines';
 
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
@@ -41,26 +40,12 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   
-  const [machines, setMachines] = useState<Machine[]>(() => {
-    try {
-      const storedMachines = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return storedMachines ? JSON.parse(storedMachines) : mockMachines;
-    } catch (error) {
-      console.error("Error loading machines from localStorage:", error);
-      return mockMachines;
-    }
-  });
+  const { machines, updateTask, addMachine, deleteMachine } = useMachines();
   
   const [showAddMachineDialog, setShowAddMachineDialog] = useState(false);
   const [machineToDelete, setMachineToDelete] = useState<Machine | null>(null);
   
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(machines));
-    } catch (error) {
-      console.error("Error saving machines to localStorage:", error);
-    }
-  }, [machines]);
+
   
   const filteredMachines = machines.filter(machine => 
     machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,15 +60,8 @@ const Dashboard = () => {
   };
 
   const handleAddMachine = (newMachine: Machine) => {
-    const updatedMachines = [newMachine, ...machines];
-    setMachines(updatedMachines);
+    addMachine(newMachine);
     setShowAddMachineDialog(false);
-    
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedMachines));
-    } catch (error) {
-      console.error("Error saving new machine to localStorage:", error);
-    }
     
     navigate(`/machine/${newMachine.id}`);
     
@@ -100,15 +78,7 @@ const Dashboard = () => {
   const confirmDeleteMachine = () => {
     if (!machineToDelete) return;
     
-    const updatedMachines = machines.filter(m => m.id !== machineToDelete.id);
-    setMachines(updatedMachines);
-    
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedMachines));
-    } catch (error) {
-      console.error("Error updating localStorage after deletion:", error);
-    }
-    
+    deleteMachine(machineToDelete.id);
     setMachineToDelete(null);
     
     toast({
@@ -264,6 +234,10 @@ const Dashboard = () => {
                     <MapPin className="h-4 w-4 mr-2" />
                     Kort
                   </TabsTrigger>
+                  <TabsTrigger value="tasks">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Opgaver
+                  </TabsTrigger>
                   {hasPermission('admin') && (
                     <TabsTrigger value="qr">
                       <QrCodeIcon className="h-4 w-4 mr-2" />
@@ -296,6 +270,15 @@ const Dashboard = () => {
                   machines={filteredMachines}
                   selectedMachine={selectedMachine}
                   onSelectMachine={handleSelectMachine}
+                />
+              </TabsContent>
+
+              <TabsContent value="tasks" className="space-y-4">
+                <TaskOverview 
+                  machines={machines} 
+                  onTaskUpdate={(updatedTask, machineId) => {
+                    updateTask(machineId, updatedTask.id, updatedTask);
+                  }}
                 />
               </TabsContent>
 

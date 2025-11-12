@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 
 import ServiceRecordsList from './service/ServiceRecordsList';
 import LubricationRecordsList from './service/LubricationRecordsList';
-import TasksList from './service/TasksList';
+import MachineTasksList from './machine/MachineTasksList';
 import ServiceRecordForm from './service/ServiceRecordForm';
 import TaskForm from './service/TaskForm';
 
@@ -29,6 +29,7 @@ interface ServiceHistoryProps {
   onLubricationSubmit?: (data: { equipmentType: EquipmentType; notes: string; date: string; performedBy: string }) => void;
   onTaskSubmit?: (data: Task) => void;
   onTaskComplete?: (taskId: string, completedBy: string) => void;
+  onTaskUpdate?: (task: Task) => void;
 }
 
 const ServiceHistory: React.FC<ServiceHistoryProps> = ({ 
@@ -39,7 +40,8 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
   onServiceSubmit,
   onLubricationSubmit,
   onTaskSubmit,
-  onTaskComplete
+  onTaskComplete,
+  onTaskUpdate
 }) => {
   const { canAddServiceRecord, canAddTask } = useAuth();
   const [activeTab, setActiveTab] = useState('service');
@@ -218,9 +220,11 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
           </TabsContent>
           
           <TabsContent value="tasks" className="space-y-4">
-            <TasksList 
-              tasks={sortedTasks} 
-              onTaskComplete={handleTaskCompleteWrapper}
+            <MachineTasksList 
+              machine={{ id: machineId, tasks: sortedTasks } as any}
+              onTaskUpdate={onTaskUpdate || ((task) => {
+                console.log('Task updated:', task);
+              })}
             />
             
             {/* Task creation form */}

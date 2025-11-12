@@ -30,6 +30,8 @@ import MachineInfoCards from '@/components/machine/MachineInfoCards';
 import MachineNotFound from '@/components/machine/MachineNotFound';
 import MachineEditForm from '@/components/machine/MachineEditForm';
 import Machine3DViewer from '@/components/machine/Machine3DViewer';
+import TimeTracking from '@/components/machine/TimeTracking';
+import PayrollManager from '@/components/payroll/PayrollManager';
 
 // Data & Hooks
 import { 
@@ -41,17 +43,16 @@ import {
   getOilsByMachineId
 } from '@/data/mockData';
 import { useAuth } from '@/hooks/useAuth';
-import { Document, Machine, OilType, ServiceRecord, Task, LubricationRecord, EquipmentType, MaintenanceSchedule } from '@/types';
+import { useMachines } from '@/hooks/useMachines';
+import { Document, Machine, OilType, ServiceRecord, Task, LubricationRecord, EquipmentType, MaintenanceSchedule, TimeEntry, PayrollEntry } from '@/types';
 import { addDays, format } from 'date-fns';
-
-// Local storage key for machines
-const LOCAL_STORAGE_KEY = 'dashboard_machines';
 
 const MachineDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, isPublicAccess, setPublicAccess, user, hasPermission } = useAuth();
+  const { getMachine, updateTask, updateMachine } = useMachines();
   const [selectedEquipmentType, setSelectedEquipmentType] = useState<string>('truck');
   const [machineDocuments, setMachineDocuments] = useState<Document[]>([]);
   const [machineOils, setMachineOils] = useState<OilType[]>([]);
@@ -67,30 +68,8 @@ const MachineDetail = () => {
   const [show3DDialog, setShow3DDialog] = useState(false);
   const [comingFromQRCode, setComingFromQRCode] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
-
-  const getAllMachines = (): Machine[] => {
-    try {
-      const storedMachines = localStorage.getItem(LOCAL_STORAGE_KEY);
-      return storedMachines ? JSON.parse(storedMachines) : mockMachines;
-    } catch (error) {
-      console.error("Error loading machines from localStorage:", error);
-      return mockMachines;
-    }
-  };
-
-  const saveAllMachines = useCallback((machines: Machine[]) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(machines));
-      console.log("Saved machines to localStorage successfully");
-    } catch (error) {
-      console.error("Error saving machines to localStorage:", error);
-      toast({
-        variant: "destructive",
-        title: "Fejl ved gemning",
-        description: "Kunne ikke gemme data. Kontroller din browser's indstillinger for lokal lagring.",
-      });
-    }
-  }, []);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
   
   const isMobile = useIsMobile();
 
@@ -117,15 +96,13 @@ const MachineDetail = () => {
           }
         }
         
-        const allMachines = getAllMachines();
-        
         // Try to find the machine with the exact ID first
-        let foundMachine = allMachines.find(m => m.id === (id || ''));
+        let foundMachine = getMachine(id || '');
         
         // If not found and we have a timestamp, try without it
         if (!foundMachine && timestamp) {
           const cleanId = (id || '').split('&t=')[0];
-          foundMachine = allMachines.find(m => m.id === cleanId);
+          foundMachine = getMachine(cleanId);
         }
         
         if (foundMachine) {
@@ -250,16 +227,12 @@ const MachineDetail = () => {
   
   const updateMachineInStorage = useCallback((updatedMachine: Machine) => {
     try {
-      const allMachines = getAllMachines();
-      const updatedMachines = allMachines.map(machine => 
-        machine.id === updatedMachine.id ? updatedMachine : machine
-      );
-      saveAllMachines(updatedMachines);
-      console.log("Updated machine in storage:", updatedMachine.id);
+      const { id, ...updates } = updatedMachine;
+      updateMachine(id, updates);
     } catch (error) {
       console.error("Failed to update machine in storage:", error);
     }
-  }, [saveAllMachines]);
+  }, [updateMachine]);
   
   const handleServiceSubmit = (data: { equipmentType: string; description: string; issues?: string }) => {
     const newServiceRecord: ServiceRecord = {
@@ -487,6 +460,51 @@ const MachineDetail = () => {
       });
     }
   };
+
+  const handleTaskUpdate = (updatedTask: Task) => {
+    if (processingAction || !machineState) return;
+    
+    try {
+      setProcessingAction(true);
+      
+      // Update task using the hook
+      updateTask(machineState.id, updatedTask.id, updatedTask);
+      
+      // Update local state
+      setTasksState(prevTasks => prevTasks.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      ));
+      
+      setMachineState(prevState => {
+        if (!prevState) return undefined;
+        
+        return {
+          ...prevState,
+          tasks: prevState.tasks 
+            ? prevState.tasks.map(task => 
+                task.id === updatedTask.id ? updatedTask : task
+              )
+            : []
+        };
+      });
+      
+      setProcessingAction(false);
+      
+      toast({
+        title: "Opgave opdateret",
+        description: "Opgavedetaljerne er blevet gemt.",
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      setProcessingAction(false);
+      
+      toast({
+        variant: "destructive",
+        title: "Fejl ved opdatering af opgave",
+        description: "Der opstod en fejl. Prøv venligst igen.",
+      });
+    }
+  };
   
   const handleDocumentAdd = (newDocument: Document) => {
     setMachineDocuments(prevDocs => [newDocument, ...prevDocs]);
@@ -573,11 +591,7 @@ const MachineDetail = () => {
   const confirmDeleteMachine = () => {
     if (!machineState) return;
     
-    const allMachines = getAllMachines();
-    const updatedMachines = allMachines.filter(m => m.id !== machineState.id);
-    
-    saveAllMachines(updatedMachines);
-    
+    // This will be handled by the parent component
     navigate('/dashboard');
     
     toast({
@@ -616,6 +630,30 @@ const MachineDetail = () => {
     updateMachineInStorage(updatedMachine);
   };
 
+  const handleTimeEntryUpdate = (entry: TimeEntry) => {
+    setTimeEntries(prev => prev.map(e => e.id === entry.id ? entry : e));
+    
+
+  };
+
+  const handleTimeEntryDelete = (entryId: string) => {
+    setTimeEntries(prev => prev.filter(e => e.id !== entryId));
+  };
+
+  const handlePayrollEntryUpdate = (entry: PayrollEntry) => {
+    setPayrollEntries(prev => {
+      const updated = prev.map(e => e.id === entry.id ? entry : e);
+      if (!prev.find(e => e.id === entry.id)) {
+        updated.push(entry);
+      }
+      return updated;
+    });
+  };
+
+  const handlePayrollEntryDelete = (entryId: string) => {
+    setPayrollEntries(prev => prev.filter(entry => entry.id !== entryId));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -651,23 +689,45 @@ const MachineDetail = () => {
           onUpdateMachine={handleUpdateMachine}
         />
         
-        <MachineDetailTabs
-          machine={machineState}
-          selectedEquipmentType={selectedEquipmentType}
-          setSelectedEquipmentType={setSelectedEquipmentType}
-          serviceRecords={serviceHistoryState}
-          lubricationRecords={lubricationHistoryState}
-          tasks={tasksState}
-          documents={machineDocuments}
-          oils={machineOils}
-          onLubricationSubmit={handleLubricationSubmit}
-          onServiceSubmit={handleServiceSubmit}
-          onTaskSubmit={handleTaskSubmit}
-          onTaskComplete={handleTaskComplete}
-          onDocumentAdd={handleDocumentAdd}
-          onDocumentUpdate={handleDocumentUpdate}
-          onOilAdd={handleOilAdd}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Kun for medarbejdere */}
+          {user && ['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+            <TimeTracking
+              machineId={machineState?.id || ''}
+              equipmentType={selectedEquipmentType as EquipmentType}
+              onTimeEntryUpdate={handleTimeEntryUpdate}
+              onTimeEntryDelete={handleTimeEntryDelete}
+            />
+          )}
+          <MachineDetailTabs
+            machine={machineState}
+            selectedEquipmentType={selectedEquipmentType}
+            setSelectedEquipmentType={setSelectedEquipmentType}
+            serviceRecords={serviceHistoryState}
+            lubricationRecords={lubricationHistoryState}
+            tasks={tasksState}
+            documents={machineDocuments}
+            oils={machineOils}
+            onLubricationSubmit={handleLubricationSubmit}
+            onServiceSubmit={handleServiceSubmit}
+            onTaskSubmit={handleTaskSubmit}
+            onTaskComplete={handleTaskComplete}
+            onTaskUpdate={handleTaskUpdate}
+            onDocumentAdd={handleDocumentAdd}
+            onDocumentUpdate={handleDocumentUpdate}
+            onOilAdd={handleOilAdd}
+          />
+        </div>
+        {/* Kun for medarbejdere */}
+        {user && ['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+          <div className="mt-6">
+            <PayrollManager
+              timeEntries={timeEntries}
+              onPayrollEntryUpdate={handlePayrollEntryUpdate}
+              onPayrollEntryDelete={handlePayrollEntryDelete}
+            />
+          </div>
+        )}
         
         <MachineInfoCards machine={machineState} />
       </main>

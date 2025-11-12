@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wrench, FileText, Droplet } from 'lucide-react';
+import { Wrench, FileText, Droplet, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Machine, Document, ServiceRecord, LubricationRecord, Task, OilType } from '@/types';
 
@@ -9,6 +9,7 @@ import ServiceHistory from '@/components/ServiceHistory';
 import LubricationForm from '@/components/LubricationForm';
 import MachineDocuments from '@/components/MachineDocuments';
 import OilInformation from '@/components/OilInformation';
+import MachineTasksList from '@/components/machine/MachineTasksList';
 
 interface MachineDetailTabsProps {
   machine: Machine;
@@ -23,6 +24,7 @@ interface MachineDetailTabsProps {
   onLubricationSubmit: (data: any) => void;
   onTaskSubmit: (task: Task) => void;
   onTaskComplete: (taskId: string, completedBy: string) => void;
+  onTaskUpdate: (task: Task) => void;
   onDocumentAdd: (document: Document) => void;
   onDocumentUpdate: (document: Document) => void;
   onOilAdd: (oilData: OilType) => void;
@@ -41,6 +43,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
   onLubricationSubmit,
   onTaskSubmit,
   onTaskComplete,
+  onTaskUpdate,
   onDocumentAdd,
   onDocumentUpdate,
   onOilAdd
@@ -59,10 +62,14 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
   return (
     <div className="mt-8">
       <Tabs defaultValue="service" className="space-y-8">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           <TabsTrigger value="service">
             <Wrench className="h-4 w-4 mr-2" />
             Service & Vedligeholdelse
+          </TabsTrigger>
+          <TabsTrigger value="tasks">
+            <Clock className="h-4 w-4 mr-2" />
+            Opgaver
           </TabsTrigger>
           {(isAuthenticated || isPublicAccess) && (
             <>
@@ -88,6 +95,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
             onLubricationSubmit={onLubricationSubmit}
             onTaskSubmit={onTaskSubmit}
             onTaskComplete={onTaskComplete}
+            onTaskUpdate={onTaskUpdate}
           />
           
           {canMarkLubrication() && (
@@ -96,6 +104,13 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
               onSubmit={onLubricationSubmit} 
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="tasks" className="space-y-8 animate-fade-in">
+          <MachineTasksList 
+            machine={machine}
+            onTaskUpdate={onTaskUpdate}
+          />
         </TabsContent>
         
         <TabsContent value="documents" className="mt-6 space-y-4">

@@ -42,6 +42,10 @@ export interface Equipment {
 }
 
 export interface Machine {
+  /**
+   * NOTE: id is a string in the frontend, but must be converted to a number
+   * when calling backend or Supabase functions, as the database expects a number.
+   */
   id: string;
   name: string;
   description?: string;
@@ -85,7 +89,7 @@ export type EquipmentType = 'truck' | 'crane' | 'winch' | 'hooklift';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'canceled';
+export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'canceled' | 'approved' | 'invoiced';
 
 export interface Task {
   id: string;
@@ -97,6 +101,14 @@ export interface Task {
   priority?: TaskPriority;
   assignedTo?: string;
   equipmentType: EquipmentType;
+  timeEntryId?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  hourlyRate?: number;
+  estimatedHours?: number;
+  customerId?: string;
+  customerName?: string;
+  invoiceId?: string;
 }
 
 export interface ServiceRecord {
@@ -239,4 +251,69 @@ export interface NotificationSettings {
   maintenance?: boolean;
   tasks?: boolean;
   documents?: boolean;
+}
+
+export interface TimeEntry {
+  id: string;
+  machineId: string;
+  userId: string;
+  userName: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number; // in minutes
+  description: string;
+  status: 'active' | 'completed' | 'approved' | 'rejected';
+  equipmentType: EquipmentType;
+  partsUsed?: Part[];
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+}
+
+export interface Part {
+  id: string;
+  name: string;
+  partNumber: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface Invoice {
+  id: string;
+  customerId: string;
+  customerName: string;
+  date: string;
+  dueDate: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  items: InvoiceItem[];
+  subtotal: number;
+  vat: number;
+  total: number;
+  notes?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  type: 'time' | 'part';
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  timeEntryId?: string;
+  partId?: string;
+}
+
+export interface PayrollEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  period: string; // YYYY-MM
+  regularHours: number;
+  overtimeHours: number;
+  status: 'draft' | 'approved' | 'exported';
+  approvedBy?: string;
+  approvedAt?: string;
+  exportedAt?: string;
+  notes?: string;
 }

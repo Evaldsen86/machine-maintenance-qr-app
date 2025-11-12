@@ -1,4 +1,3 @@
-
 /**
  * Format a date string to a Danish format
  * @param dateString ISO date string
@@ -123,4 +122,77 @@ export const getCurrentDateISO = (): string => {
  */
 export const getCurrentDanishDate = (): string => {
   return formatToDanishDate(new Date());
+};
+
+/**
+ * Format a duration in minutes to a human-readable string
+ * @param minutes Duration in minutes
+ * @returns Formatted duration string (e.g. "2t 30m")
+ */
+export const formatDuration = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  
+  if (hours === 0) {
+    return `${remainingMinutes}m`;
+  }
+  
+  if (remainingMinutes === 0) {
+    return `${hours}t`;
+  }
+  
+  return `${hours}t ${remainingMinutes}m`;
+};
+
+/**
+ * Calculate the duration between two dates in minutes
+ * @param startDate Start date
+ * @param endDate End date
+ * @returns Duration in minutes
+ */
+export const calculateDuration = (startDate: Date, endDate: Date): number => {
+  return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+};
+
+/**
+ * Get the current date in ISO format
+ * @returns Current date in ISO format
+ */
+export const getCurrentDate = (): string => {
+  return new Date().toISOString();
+};
+
+/**
+ * Add days to a date
+ * @param date Date to add days to
+ * @param days Number of days to add
+ * @returns New date
+ */
+export const addDays = (date: Date, days: number): Date => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
+/**
+ * Get the start of the current month
+ * @returns Start of current month in ISO format
+ */
+export const getStartOfMonth = (): string => {
+  const date = new Date();
+  date.setDate(1);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+};
+
+/**
+ * Get the end of the current month
+ * @returns End of current month in ISO format
+ */
+export const getEndOfMonth = (): string => {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+  date.setDate(0);
+  date.setHours(23, 59, 59, 999);
+  return date.toISOString();
 };

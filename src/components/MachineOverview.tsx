@@ -407,7 +407,8 @@ const MachineOverview: React.FC<MachineOverviewProps> = ({ machine, onUpdateMach
 
       <CardContent className="p-6">
         <h1 className="text-3xl font-bold mb-2">{machine.name}</h1>
-        <p className="text-muted-foreground mb-6">{machine.model}</p>
+        <p className="text-muted-foreground mb-1">{machine.model}</p>
+        <p className="text-xs text-muted-foreground mb-6">ID: {machine.id}</p>
         
         <div className="space-y-8">
           <div>

@@ -39,6 +39,8 @@ interface QRCodeOptions {
   logoUrl?: string;
 }
 
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
 export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machine }) => {
   // Defensive check for required props
   if (!machine || !machine.id || !machine.name) {
@@ -202,7 +204,7 @@ export const MachineQRSection: React.FC<MachineQRSectionProps> = ({ machine }) =
       }
       
       // Save QR options to Supabase
-      await machineService.updateMachine(machineId, {
+      await machineService.updateMachine(Number(machineId), {
         qr_data: {
           ...options,
           format: options.format || 'png',
