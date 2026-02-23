@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileEdit, Trash2, QrCode, View, MoreVertical } from 'lucide-react';
+import { ArrowLeft, FileEdit, Trash2, QrCode, View, MoreVertical, GraduationCap } from 'lucide-react';
 import { Machine } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -71,6 +71,12 @@ const MachineDetailHeader: React.FC<MachineDetailHeaderProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {(user?.role === 'driver' || user?.role === 'admin' || user?.role === 'mechanic' || user?.role === 'technician') && (
+                <DropdownMenuItem onClick={() => navigate(`/elearning/machine/${machine.id}`)}>
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  E-Learning
+                </DropdownMenuItem>
+              )}
               {onView3D && (
                 <DropdownMenuItem onClick={onView3D}>
                   <View className="h-4 w-4 mr-2" />
@@ -106,6 +112,17 @@ const MachineDetailHeader: React.FC<MachineDetailHeaderProps> = ({
           </DropdownMenu>
         ) : (
           <div className="flex items-center gap-2">
+            {(user?.role === 'driver' || user?.role === 'admin' || user?.role === 'mechanic' || user?.role === 'technician') && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 flex items-center gap-1"
+                onClick={() => navigate(`/elearning/machine/${machine.id}`)}
+              >
+                <GraduationCap className="h-4 w-4" />
+                E-Learning
+              </Button>
+            )}
             {onView3D && (
               <Button
                 variant="outline"

@@ -26,12 +26,12 @@ import MachineOverview from '@/components/MachineOverview';
 import PublicAccessBanner from '@/components/machine/PublicAccessBanner';
 import MachineDetailHeader from '@/components/machine/MachineDetailHeader';
 import MachineDetailTabs from '@/components/machine/MachineDetailTabs';
+import MachineOffersCard from '@/components/machine/MachineOffersCard';
 import MachineInfoCards from '@/components/machine/MachineInfoCards';
 import MachineNotFound from '@/components/machine/MachineNotFound';
 import MachineEditForm from '@/components/machine/MachineEditForm';
 import Machine3DViewer from '@/components/machine/Machine3DViewer';
 import TimeTracking from '@/components/machine/TimeTracking';
-import PayrollManager from '@/components/payroll/PayrollManager';
 
 // Data & Hooks
 import { 
@@ -69,7 +69,6 @@ const MachineDetail = () => {
   const [comingFromQRCode, setComingFromQRCode] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [payrollEntries, setPayrollEntries] = useState<PayrollEntry[]>([]);
   
   const isMobile = useIsMobile();
 
@@ -640,19 +639,6 @@ const MachineDetail = () => {
     setTimeEntries(prev => prev.filter(e => e.id !== entryId));
   };
 
-  const handlePayrollEntryUpdate = (entry: PayrollEntry) => {
-    setPayrollEntries(prev => {
-      const updated = prev.map(e => e.id === entry.id ? entry : e);
-      if (!prev.find(e => e.id === entry.id)) {
-        updated.push(entry);
-      }
-      return updated;
-    });
-  };
-
-  const handlePayrollEntryDelete = (entryId: string) => {
-    setPayrollEntries(prev => prev.filter(entry => entry.id !== entryId));
-  };
 
   if (loading) {
     return (
@@ -689,46 +675,62 @@ const MachineDetail = () => {
           onUpdateMachine={handleUpdateMachine}
         />
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          {/* Kun for medarbejdere */}
-          {user && ['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+        {/* Check if TimeTracking should be shown */}
+        {user && ['mechanic','technician','blacksmith','driver','admin','leader'].includes(user.role) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <TimeTracking
               machineId={machineState?.id || ''}
               equipmentType={selectedEquipmentType as EquipmentType}
               onTimeEntryUpdate={handleTimeEntryUpdate}
               onTimeEntryDelete={handleTimeEntryDelete}
             />
-          )}
-          <MachineDetailTabs
-            machine={machineState}
-            selectedEquipmentType={selectedEquipmentType}
-            setSelectedEquipmentType={setSelectedEquipmentType}
-            serviceRecords={serviceHistoryState}
-            lubricationRecords={lubricationHistoryState}
-            tasks={tasksState}
-            documents={machineDocuments}
-            oils={machineOils}
-            onLubricationSubmit={handleLubricationSubmit}
-            onServiceSubmit={handleServiceSubmit}
-            onTaskSubmit={handleTaskSubmit}
-            onTaskComplete={handleTaskComplete}
-            onTaskUpdate={handleTaskUpdate}
-            onDocumentAdd={handleDocumentAdd}
-            onDocumentUpdate={handleDocumentUpdate}
-            onOilAdd={handleOilAdd}
-          />
-        </div>
-        {/* Kun for medarbejdere */}
-        {user && ['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+            <MachineDetailTabs
+              machine={machineState}
+              selectedEquipmentType={selectedEquipmentType}
+              setSelectedEquipmentType={setSelectedEquipmentType}
+              serviceRecords={serviceHistoryState}
+              lubricationRecords={lubricationHistoryState}
+              tasks={tasksState}
+              documents={machineDocuments}
+              oils={machineOils}
+              onLubricationSubmit={handleLubricationSubmit}
+              onServiceSubmit={handleServiceSubmit}
+              onTaskSubmit={handleTaskSubmit}
+              onTaskComplete={handleTaskComplete}
+              onTaskUpdate={handleTaskUpdate}
+              onDocumentAdd={handleDocumentAdd}
+              onDocumentUpdate={handleDocumentUpdate}
+              onOilAdd={handleOilAdd}
+            />
+          </div>
+        ) : (
           <div className="mt-6">
-            <PayrollManager
-              timeEntries={timeEntries}
-              onPayrollEntryUpdate={handlePayrollEntryUpdate}
-              onPayrollEntryDelete={handlePayrollEntryDelete}
+            <MachineDetailTabs
+              machine={machineState}
+              selectedEquipmentType={selectedEquipmentType}
+              setSelectedEquipmentType={setSelectedEquipmentType}
+              serviceRecords={serviceHistoryState}
+              lubricationRecords={lubricationHistoryState}
+              tasks={tasksState}
+              documents={machineDocuments}
+              oils={machineOils}
+              onLubricationSubmit={handleLubricationSubmit}
+              onServiceSubmit={handleServiceSubmit}
+              onTaskSubmit={handleTaskSubmit}
+              onTaskComplete={handleTaskComplete}
+              onTaskUpdate={handleTaskUpdate}
+              onDocumentAdd={handleDocumentAdd}
+              onDocumentUpdate={handleDocumentUpdate}
+              onOilAdd={handleOilAdd}
             />
           </div>
         )}
         
+        {hasPermission('leader') && machineState && (
+          <div className="mt-6">
+            <MachineOffersCard machineId={machineState.id} />
+          </div>
+        )}
         <MachineInfoCards machine={machineState} />
       </main>
       

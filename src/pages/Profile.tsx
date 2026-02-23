@@ -11,10 +11,10 @@ import {
   Phone,
   Mail,
   FileText,
-  GraduationCap,
   Info,
   Upload,
-  X
+  X,
+  Film
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
 
 import { useAuth } from '@/hooks/useAuth';
+import PayrollManager from '@/components/payroll/PayrollManager';
+import type { TimeEntry, PayrollEntry, VideoProgress, Approval, Video } from '@/types';
+import { CheckCircle, Clock, Truck, GraduationCap, AlertCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { da } from 'date-fns/locale';
 
 // Form schema for profile update
 const profileFormSchema = z.object({
@@ -67,6 +72,108 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [videoProgress, setVideoProgress] = useState<VideoProgress[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  
+  // Load all time entries for this user from all machines
+  React.useEffect(() => {
+    if (!user) return;
+    
+    const loadAllTimeEntries = () => {
+      try {
+        // Get all time entries from localStorage for all machines
+        const allEntries: TimeEntry[] = [];
+        
+        // Check localStorage for time entries (they're stored per machine)
+        // We'll need to check all possible machine IDs or use a different approach
+        // For now, let's get entries from common storage keys
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('time_entries_')) {
+            try {
+              const entries = JSON.parse(localStorage.getItem(key) || '[]');
+              const userEntries = entries.filter((entry: TimeEntry) => entry.userId === user.id);
+              allEntries.push(...userEntries);
+            } catch (e) {
+              // Skip invalid entries
+            }
+          }
+        }
+        
+        setTimeEntries(allEntries);
+      } catch (error) {
+        console.error("Error loading time entries:", error);
+      }
+    };
+    
+    loadAllTimeEntries();
+    
+    // Load video progress
+    if (user) {
+      try {
+        const storedProgress = localStorage.getItem(`elearning_progress_${user.id}`);
+        if (storedProgress) {
+          setVideoProgress(JSON.parse(storedProgress));
+        }
+      } catch (error) {
+        console.error("Error loading video progress:", error);
+      }
+
+      // Load approvals (global, filter for current user)
+      try {
+        const storedApprovals = localStorage.getItem('elearning_approvals');
+        if (storedApprovals && user) {
+          const allApprovals = JSON.parse(storedApprovals);
+          setApprovals(allApprovals.filter((a: Approval) => a.userId === user.id));
+        }
+      } catch (error) {
+        console.error("Error loading approvals:", error);
+      }
+    }
+
+    // Load videos
+    try {
+      const storedVideos = localStorage.getItem('elearning_videos');
+      if (storedVideos) {
+        setVideos(JSON.parse(storedVideos));
+      }
+    } catch (error) {
+      console.error("Error loading videos:", error);
+    }
+
+  }, [user]);
+  
+  const handlePayrollEntryUpdate = (entry: PayrollEntry) => {
+    if (!user) return;
+    
+    // Load existing entries
+    try {
+      const stored = localStorage.getItem(`payroll_entries_${user.id}`);
+      const existing = stored ? JSON.parse(stored) : [];
+      const updated = existing.map((e: PayrollEntry) => e.id === entry.id ? entry : e);
+      if (!existing.find((e: PayrollEntry) => e.id === entry.id)) {
+        updated.push(entry);
+      }
+      localStorage.setItem(`payroll_entries_${user.id}`, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error updating payroll entry:", error);
+    }
+  };
+  
+  const handlePayrollEntryDelete = (entryId: string) => {
+    if (!user) return;
+    
+    try {
+      const stored = localStorage.getItem(`payroll_entries_${user.id}`);
+      const existing = stored ? JSON.parse(stored) : [];
+      const updated = existing.filter((entry: PayrollEntry) => entry.id !== entryId);
+      localStorage.setItem(`payroll_entries_${user.id}`, JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error deleting payroll entry:", error);
+    }
+  };
   
   // Redirect if not logged in
   if (!user) {
@@ -148,6 +255,10 @@ const Profile = () => {
     switch (role) {
       case 'admin':
         return 'Administrator';
+      case 'leader':
+        return 'Leder';
+      case 'lagermand':
+        return 'Lagermand';
       case 'driver':
         return 'Chauffør';
       case 'mechanic':
@@ -284,6 +395,170 @@ const Profile = () => {
               {/* Rest of existing tabs content */}
               {/* View mode */}
               <TabsContent value="info" className="space-y-6">
+                {/* E-Learning Certifications - Show for drivers and employees, but not guests */}
+                {(user.role === 'driver' || ['mechanic','technician','blacksmith','admin'].includes(user.role)) && user.role !== 'guest' && user.role !== 'viewer' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <GraduationCap className="mr-2 h-5 w-5" />
+                        E-Learning Certifikater
+                      </CardTitle>
+                      <CardDescription>
+                        Se hvilke videoer du har set og hvilke lastbiler du er godkendt til at køre
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Approved Machines */}
+                      <div>
+                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Truck className="h-4 w-4" />
+                          Godkendte lastbiler
+                        </h3>
+                        {approvals.filter(a => a.status === 'approved').length > 0 ? (
+                          <div className="space-y-2">
+                            {approvals
+                              .filter(a => a.status === 'approved')
+                              .map(approval => (
+                                <div
+                                  key={approval.id}
+                                  className="flex items-center justify-between p-3 rounded-lg border bg-green-50 border-green-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <CheckCircle className="h-5 w-5 text-green-600" />
+                                    <div>
+                                      <p className="font-medium">{approval.machineName}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Godkendt af {approval.approvedByName} • {format(new Date(approval.approvedAt), 'dd MMM yyyy', { locale: da })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="default" className="bg-green-600">
+                                    Godkendt
+                                  </Badge>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4">
+                            Du er ikke godkendt til nogen lastbiler endnu
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Video Progress */}
+                      <div>
+                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Film className="h-4 w-4" />
+                          Sette videoer ({videoProgress.filter(p => p.completed).length}/{videos.length})
+                        </h3>
+                        {videoProgress.length > 0 ? (
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {videoProgress.map(progress => {
+                              const video = videos.find(v => v.id === progress.videoId);
+                              if (!video) return null;
+                              
+                              return (
+                                <div
+                                  key={progress.id}
+                                  className="flex items-center justify-between p-2 rounded border"
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    {progress.completed ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                    ) : (
+                                      <Clock className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                                    )}
+                                    <p className="text-sm truncate">{video.title}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-primary transition-all"
+                                        style={{ width: `${progress.progress}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-muted-foreground w-12 text-right">
+                                      {Math.round(progress.progress)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4">
+                            Du har ikke set nogen videoer endnu
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Pending Approvals */}
+                      {approvals.filter(a => a.status === 'pending').length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 text-yellow-600" />
+                            Afventende godkendelser
+                          </h3>
+                          <div className="space-y-2">
+                            {approvals
+                              .filter(a => a.status === 'pending')
+                              .map(approval => (
+                                <div
+                                  key={approval.id}
+                                  className="flex items-center justify-between p-3 rounded-lg border bg-yellow-50 border-yellow-200"
+                                >
+                                  <div>
+                                    <p className="font-medium">{approval.machineName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Afventer godkendelse
+                                    </p>
+                                  </div>
+                                  <Badge variant="secondary">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Afventer
+                                  </Badge>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Link to E-Learning */}
+                      <div className="pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => window.location.href = '/elearning'}
+                        >
+                          <GraduationCap className="h-4 w-4 mr-2" />
+                          Gå til E-Learning
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Payroll Section - Show for employees */}
+                {['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <FileText className="mr-2 h-5 w-5" />
+                        Lønsedler
+                      </CardTitle>
+                      <CardDescription>
+                        Se og administrer dine lønsedler baseret på registreret arbejdstid
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <PayrollManager
+                        timeEntries={timeEntries}
+                        onPayrollEntryUpdate={handlePayrollEntryUpdate}
+                        onPayrollEntryDelete={handlePayrollEntryDelete}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">

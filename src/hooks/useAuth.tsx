@@ -152,7 +152,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'mechanic': 3,
       'technician': 4,
       'blacksmith': 4,
-      'admin': 5,
+      'lagermand': 5,
+      'leader': 5,
+      'admin': 6,
       'guest': 1
     };
     

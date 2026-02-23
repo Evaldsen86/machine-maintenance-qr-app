@@ -15,7 +15,15 @@ export const formatDate = (dateString: string): string => {
  */
 export const formatDateTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('da-DK') + ' ' + date.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+  return (
+    date.toLocaleDateString('da-DK') +
+    ' ' +
+    date.toLocaleTimeString('da-DK', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  );
 };
 
 /**

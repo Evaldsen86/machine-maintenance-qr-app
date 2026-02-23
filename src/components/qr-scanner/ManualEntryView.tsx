@@ -30,34 +30,62 @@ const ManualEntryView: React.FC<ManualEntryViewProps> = ({ onScan, machines }) =
       setIsLoading(true);
       
       // Clean the input code
-      const cleanCode = manualCode.trim().toLowerCase();
+      const cleanCode = manualCode.trim();
+      const cleanCodeLower = cleanCode.toLowerCase();
       
-      // Try different formats of the machine ID
-      const machineIdWithPrefix = cleanCode.startsWith('machine-') ? cleanCode : `machine-${cleanCode}`;
-      const machineIdWithoutPrefix = cleanCode.replace('machine-', '');
+      console.log("Searching for machine with code:", cleanCode, "Total machines:", machines.length);
       
-      // Check if machine exists
-      const machineExists = machines.some((machine: Machine) => 
-        machine.id === machineIdWithPrefix || machine.id === machineIdWithoutPrefix
-      );
-      
-      if (machineExists) {
-        // Use the correct format when handling the scan
-        const foundMachine = machines.find((machine: Machine) => 
-          machine.id === machineIdWithPrefix || machine.id === machineIdWithoutPrefix
-        );
+      // Search for machine by ID (case-insensitive), QR code, or name
+      const foundMachine = machines.find((machine: Machine) => {
+        const machineIdLower = machine.id.toLowerCase();
+        const machineNameLower = machine.name?.toLowerCase() || '';
+        const machineQrCodeLower = machine.qrCode?.toLowerCase() || '';
         
-        if (foundMachine) {
-          console.log("Machine found via manual code:", foundMachine.id);
-          onScan(foundMachine.id);
-          setManualCode('');
+        // Try exact ID match (case-insensitive) - this should handle "machine-1" === "machine-1"
+        if (machineIdLower === cleanCodeLower) {
+          return true;
         }
+        
+        // Try ID with "machine-" prefix if input doesn't have it (e.g., input "1" matches "machine-1")
+        if (!cleanCodeLower.startsWith('machine-')) {
+          if (machineIdLower === `machine-${cleanCodeLower}`) {
+            return true;
+          }
+        }
+        
+        // Try ID without "machine-" prefix if input has it (shouldn't be needed but just in case)
+        if (cleanCodeLower.startsWith('machine-')) {
+          const codeWithoutPrefix = cleanCodeLower.replace(/^machine-/, '');
+          // Match if machine ID is exactly "machine-{number}"
+          if (machineIdLower === `machine-${codeWithoutPrefix}`) {
+            return true;
+          }
+        }
+        
+        // Try QR code match (case-insensitive)
+        if (machineQrCodeLower && machineQrCodeLower === cleanCodeLower) {
+          return true;
+        }
+        
+        // Try name match (partial, case-insensitive)
+        if (machineNameLower.includes(cleanCodeLower)) {
+          return true;
+        }
+        
+        return false;
+      });
+      
+      if (foundMachine) {
+        console.log("Machine found via manual code:", foundMachine.id, foundMachine.name);
+        onScan(foundMachine.id);
+        setManualCode('');
       } else {
-        console.error("No machine found with code:", cleanCode, "or", machineIdWithPrefix);
+        console.error("No machine found with code:", cleanCode);
+        console.error("Available machines:", machines.map(m => ({ id: m.id, name: m.name, qrCode: m.qrCode })));
         toast({
           variant: "destructive",
           title: "Fejl",
-          description: "Ingen maskine fundet med denne kode.",
+          description: `Ingen maskine fundet med "${cleanCode}". Prøv at søge på ID (f.eks. machine-1), QR-kode eller navn.`,
         });
       }
     } catch (error) {
@@ -90,7 +118,7 @@ const ManualEntryView: React.FC<ManualEntryViewProps> = ({ onScan, machines }) =
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Indtast ID eller koden fra maskinens QR-kode. Eksempel: machine-1 eller bare 1
+          Indtast maskine ID, QR-kode eller navn. Eksempel: machine-1, 1, eller maskinens navn
         </p>
       </div>
       

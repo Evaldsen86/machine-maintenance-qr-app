@@ -10,6 +10,7 @@ import { TimeEntry, Part, Invoice, InvoiceItem } from '@/types';
 import { formatDate, addDays } from '@/utils/dateUtils';
 import { Download, FileText } from 'lucide-react';
 import { formatCurrency } from '@/utils/currencyUtils';
+import InvoicePreview from './InvoicePreview';
 
 interface InvoiceGeneratorProps {
   timeEntries: TimeEntry[];
@@ -31,21 +32,10 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>(formatDate(addDays(new Date(), 14).toISOString()));
 
-  const handleGenerateInvoice = () => {
-    if (selectedEntries.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "Vælg venligst mindst én tidsregistrering.",
-      });
-      return;
-    }
-
-    const selectedTimeEntries = timeEntries.filter(entry => selectedEntries.includes(entry.id));
+  const buildInvoiceItems = (entries: TimeEntry[]) => {
     const items: InvoiceItem[] = [];
 
-    // Add time entries
-    selectedTimeEntries.forEach(entry => {
+    entries.forEach(entry => {
       if (entry.duration) {
         const hours = entry.duration / 60;
         items.push({
@@ -59,7 +49,6 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
         });
       }
 
-      // Add parts
       if (entry.partsUsed) {
         entry.partsUsed.forEach(part => {
           items.push({
@@ -75,6 +64,21 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
       }
     });
 
+    return items;
+  };
+
+  const handleGenerateInvoice = () => {
+    if (selectedEntries.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Fejl",
+        description: "Vælg venligst mindst én tidsregistrering.",
+      });
+      return;
+    }
+
+    const selectedTimeEntries = timeEntries.filter(entry => selectedEntries.includes(entry.id));
+    const items = buildInvoiceItems(selectedTimeEntries);
     const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
     const vat = subtotal * (vatRate / 100);
     const total = subtotal + vat;
@@ -111,6 +115,17 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
       description: "Fakturaen er blevet downloadet som PDF.",
     });
   };
+
+  const selectedTimeEntries = timeEntries.filter(entry => selectedEntries.includes(entry.id));
+  const previewItems = buildInvoiceItems(selectedTimeEntries);
+  const previewSubtotal = previewItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const previewVat = previewSubtotal * (vatRate / 100);
+  const previewTotal = previewSubtotal + previewVat;
+  const previewInvoiceDate = new Date().toISOString();
+  const previewDueDate = (() => {
+    const parsed = new Date(dueDate);
+    return Number.isNaN(parsed.getTime()) ? previewInvoiceDate : parsed.toISOString();
+  })();
 
   return (
     <Card>
@@ -214,6 +229,18 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
               ))}
           </div>
         </div>
+
+        <InvoicePreview
+          customerName={customerName}
+          invoiceDate={previewInvoiceDate}
+          dueDate={previewDueDate}
+          items={previewItems}
+          subtotal={previewSubtotal}
+          vat={previewVat}
+          total={previewTotal}
+          notes={notes}
+          description="Sådan vil fakturaen se ud, når opgaven er færdig"
+        />
 
         <Button 
           onClick={handleGenerateInvoice}

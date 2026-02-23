@@ -5,6 +5,8 @@ import { UserRole } from '@/types';
 export const getRoleName = (role: UserRole): string => {
   switch(role) {
     case 'admin': return 'Administrator';
+    case 'leader': return 'Leder';
+    case 'lagermand': return 'Lagermand';
     case 'driver': return 'Chauffør';
     case 'mechanic': return 'Mekaniker';
     case 'technician': return 'Tekniker';
@@ -20,6 +22,8 @@ export const getRoleName = (role: UserRole): string => {
 export const getRoleBadgeVariant = (role: UserRole) => {
   switch(role) {
     case 'admin': return 'destructive';
+    case 'leader': return 'default';
+    case 'lagermand': return 'secondary';
     case 'mechanic':
     case 'technician':
     case 'blacksmith': return 'default';

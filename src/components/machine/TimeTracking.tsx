@@ -35,6 +35,10 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [partsUsed, setPartsUsed] = useState<Part[]>([]);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editStartClock, setEditStartClock] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editEndClock, setEditEndClock] = useState('');
 
   // Load time entries from localStorage
   useEffect(() => {
@@ -128,14 +132,67 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     setDescription(entry.description);
     setNotes(entry.notes || '');
     setPartsUsed(entry.partsUsed || []);
+    setEditStartDate(toLocalDateValue(entry.startTime));
+    setEditStartClock(toLocalTimeValue(entry.startTime));
+    setEditEndDate(entry.endTime ? toLocalDateValue(entry.endTime) : '');
+    setEditEndClock(entry.endTime ? toLocalTimeValue(entry.endTime) : '');
     setIsEditing(true);
   };
 
   const saveTimeEntry = () => {
     if (!activeEntry) return;
 
+    let updatedStartTime = activeEntry.startTime;
+    let updatedEndTime = activeEntry.endTime;
+    let updatedDuration = activeEntry.duration;
+
+    if (canEditHours) {
+      const parsedStart = toISOFromLocal(editStartDate, editStartClock);
+      const parsedEnd = editEndDate || editEndClock ? toISOFromLocal(editEndDate, editEndClock) : undefined;
+
+      if (!parsedStart) {
+        toast({
+          variant: "destructive",
+          title: "Ugyldig starttid",
+          description: "Angiv en gyldig starttid for arbejdet.",
+        });
+        return;
+      }
+
+      if ((editEndDate || editEndClock) && !parsedEnd) {
+        toast({
+          variant: "destructive",
+          title: "Ugyldig sluttid",
+          description: "Angiv både dato og tidspunkt for sluttid.",
+        });
+        return;
+      }
+
+      if (parsedEnd) {
+        const startDate = new Date(parsedStart);
+        const endDate = new Date(parsedEnd);
+        if (endDate.getTime() < startDate.getTime()) {
+          toast({
+            variant: "destructive",
+            title: "Ugyldig sluttid",
+            description: "Sluttiden skal være efter starttiden.",
+          });
+          return;
+        }
+        updatedDuration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60));
+      } else {
+        updatedDuration = undefined;
+      }
+
+      updatedStartTime = parsedStart;
+      updatedEndTime = parsedEnd;
+    }
+
     const updatedEntry: TimeEntry = {
       ...activeEntry,
+      startTime: updatedStartTime,
+      endTime: updatedEndTime,
+      duration: updatedDuration,
       description,
       notes,
       partsUsed,
@@ -158,6 +215,10 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     setDescription('');
     setNotes('');
     setPartsUsed([]);
+    setEditStartDate('');
+    setEditStartClock('');
+    setEditEndDate('');
+    setEditEndClock('');
 
     toast({
       title: "Tid opdateret",
@@ -202,7 +263,35 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     }
   };
 
-  const canEditTime = hasPermission('admin') || hasPermission('mechanic') || hasPermission('technician');
+  const canEditTime = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician');
+  const canEditHours = hasPermission('leader');
+
+  const toLocalDateValue = (isoString: string) => {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const toLocalTimeValue = (isoString: string) => {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const toISOFromLocal = (dateValue: string, timeValue: string) => {
+    if (!dateValue || !timeValue) return undefined;
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const [hours, minutes] = timeValue.split(':').map(Number);
+    if (!year || !month || !day || Number.isNaN(hours) || Number.isNaN(minutes)) return undefined;
+    const localDate = new Date(year, month - 1, day, hours, minutes);
+    if (Number.isNaN(localDate.getTime())) return undefined;
+    return localDate.toISOString();
+  };
 
   return (
     <Card>
@@ -270,6 +359,42 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
 
         {isEditing && activeEntry && (
           <div className="space-y-4">
+            {canEditHours && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Starttid</label>
+                  <div className="grid gap-2">
+                    <Input
+                      type="date"
+                      value={editStartDate}
+                      onChange={(e) => setEditStartDate(e.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      step="60"
+                      value={editStartClock}
+                      onChange={(e) => setEditStartClock(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Sluttid</label>
+                  <div className="grid gap-2">
+                    <Input
+                      type="date"
+                      value={editEndDate}
+                      onChange={(e) => setEditEndDate(e.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      step="60"
+                      value={editEndClock}
+                      onChange={(e) => setEditEndClock(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Beskrivelse</label>
               <Textarea

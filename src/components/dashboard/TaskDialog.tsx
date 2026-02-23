@@ -1,27 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Task, Machine } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  Play, 
-  Square, 
-  CheckCircle, 
-  Clock, 
-  User, 
   Truck,
   AlertTriangle,
   Circle,
   ArrowUp,
   ArrowDown,
-  FileText,
-  DollarSign,
   Calendar,
   Users,
   Edit
@@ -29,7 +21,6 @@ import {
 import { translateType } from '@/utils/equipmentTranslations';
 import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { mockUsers } from '@/data/mockData';
-import { formatDateTime, formatDuration } from '@/utils/dateUtils';
 import { formatCurrency } from '@/utils/currencyUtils';
 import TaskWorkflow from './TaskWorkflow';
 
@@ -56,12 +47,20 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
   const [customerName, setCustomerName] = useState(task.customerName || '');
   const [hourlyRate, setHourlyRate] = useState(task.hourlyRate || 750);
   const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours || 2);
-  const [notes, setNotes] = useState('');
+  const [currentTask, setCurrentTask] = useState(task);
+
+  // Update state when task prop changes
+  useEffect(() => {
+    setCurrentTask(task);
+    setAssignedTo(task.assignedTo || 'unassigned');
+    setCustomerName(task.customerName || '');
+    setHourlyRate(task.hourlyRate || 750);
+    setEstimatedHours(task.estimatedHours || 2);
+  }, [task]);
 
   const canEdit = hasPermission('admin') || hasPermission('mechanic') || hasPermission('technician');
-  const canAssign = hasPermission('admin');
-  const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin');
-  const isAssignedToMe = task.assignedTo === user?.id || task.assignedTo === user?.name;
+  const canAssign = hasPermission('admin'); // Admin and manager can assign tasks
+  const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin') || hasPermission('blacksmith');
 
   const eligibleUsers = mockUsers.filter(u => 
     u.role === 'driver' || 
@@ -99,32 +98,31 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const handleAssignToMe = () => {
     const updatedTask: Task = {
-      ...task,
+      ...currentTask,
       assignedTo: user?.id || user?.name || '',
       status: 'pending'
     };
+    setCurrentTask(updatedTask);
+    setAssignedTo(updatedTask.assignedTo || '');
     onTaskUpdate(updatedTask);
     
     toast({
       title: "Opgave tildelt",
-      description: `Du har nu taget ansvar for: ${task.title}`,
+      description: `Du har nu taget ansvar for: ${currentTask.title}`,
     });
   };
 
-  const handleStartWork = () => {
-    // This will be handled by TaskWorkflow component
-    // Just close the dialog to show the workflow
-    onClose();
-  };
+  // Start work is handled by TaskWorkflow component directly
 
   const handleSaveChanges = () => {
     const updatedTask: Task = {
-      ...task,
-      assignedTo,
+      ...currentTask,
+      assignedTo: assignedTo === 'unassigned' ? undefined : assignedTo,
       customerName,
       hourlyRate,
       estimatedHours
     };
+    setCurrentTask(updatedTask);
     onTaskUpdate(updatedTask);
     setIsEditing(false);
     
@@ -134,35 +132,45 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
     });
   };
 
-  const dueDate = new Date(task.dueDate);
-  const isOverdue = dueDate < new Date() && task.status !== 'completed' && task.status !== 'approved' && task.status !== 'invoiced';
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset to original task values
+    setAssignedTo(currentTask.assignedTo || 'unassigned');
+    setCustomerName(currentTask.customerName || '');
+    setHourlyRate(currentTask.hourlyRate || 750);
+    setEstimatedHours(currentTask.estimatedHours || 2);
+  };
+
+  const dueDate = new Date(currentTask.dueDate);
+  const isOverdue = dueDate < new Date() && currentTask.status !== 'completed' && currentTask.status !== 'approved' && currentTask.status !== 'invoiced';
+  const isAssignedToMe = currentTask.assignedTo === user?.id || currentTask.assignedTo === user?.name;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              {getPriorityIcon(task.priority || 'medium')}
+              {getPriorityIcon(currentTask.priority || 'medium')}
               <div>
-                <DialogTitle className="text-xl">{task.title}</DialogTitle>
+                <DialogTitle className="text-xl">{currentTask.title}</DialogTitle>
                 <DialogDescription>
-                  {task.description}
+                  {currentTask.description}
                 </DialogDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className={getStatusColor(task.status)}>
-                {getStatusDetails(task.status).label}
+              <Badge variant="outline" className={getStatusColor(currentTask.status)}>
+                {getStatusDetails(currentTask.status).label}
               </Badge>
               <Badge variant="outline">
-                {translateType(task.equipmentType)}
+                {translateType(currentTask.equipmentType)}
               </Badge>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {/* Task Details */}
           <Card>
             <CardHeader>
@@ -190,13 +198,13 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                         <SelectValue placeholder="Vælg person" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Ikke tildelt</SelectItem>
-                        {eligibleUsers.map(user => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.name} ({user.role === 'admin' ? 'Administrator' : 
-                              user.role === 'mechanic' ? 'Mekaniker' : 
-                              user.role === 'technician' ? 'Tekniker' : 
-                              user.role === 'blacksmith' ? 'Smed' : 'Chauffør'})
+                        <SelectItem value="unassigned">Ikke tildelt</SelectItem>
+                        {eligibleUsers.map(u => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.name} ({u.role === 'admin' ? 'Administrator' : 
+                              u.role === 'mechanic' ? 'Mekaniker' : 
+                              u.role === 'technician' ? 'Tekniker' : 
+                              u.role === 'blacksmith' ? 'Smed' : 'Chauffør'})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -247,35 +255,35 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                   <div>
                     <span className="text-sm text-muted-foreground">Tildelt til:</span>
                     <div className="font-medium">
-                      {task.assignedTo ? getUserName(task.assignedTo) : 'Ikke tildelt'}
+                      {currentTask.assignedTo ? getUserName(currentTask.assignedTo) : 'Ikke tildelt'}
                     </div>
                   </div>
                   
-                  {task.estimatedHours && (
+                  {currentTask.estimatedHours && (
                     <div>
                       <span className="text-sm text-muted-foreground">Estimeret tid:</span>
-                      <div className="font-medium">{task.estimatedHours} timer</div>
+                      <div className="font-medium">{currentTask.estimatedHours} timer</div>
                     </div>
                   )}
                   
-                  {task.hourlyRate && (
+                  {currentTask.hourlyRate && (
                     <div>
                       <span className="text-sm text-muted-foreground">Timepris:</span>
-                      <div className="font-medium">{formatCurrency(task.hourlyRate)}</div>
+                      <div className="font-medium">{formatCurrency(currentTask.hourlyRate)}</div>
                     </div>
                   )}
                 </div>
               )}
 
               {isEditing && (
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={handleCancelEdit}>
                     Annuller
                   </Button>
                   <Button onClick={handleSaveChanges}>
                     Gem ændringer
                   </Button>
-                </DialogFooter>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -288,31 +296,35 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {/* Take Task Button */}
-                {task.status === 'pending' && canTakeTask && !isAssignedToMe && (
+                {currentTask.status === 'pending' && canTakeTask && !isAssignedToMe && (
                   <Button onClick={handleAssignToMe} className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
                     Tag ansvar for opgaven
                   </Button>
                 )}
 
-                {/* Start Work Button */}
-                {task.status === 'pending' && canTakeTask && (isAssignedToMe || !task.assignedTo) && (
-                  <Button onClick={handleStartWork} className="flex items-center gap-2">
-                    <Play className="h-4 w-4" />
-                    Start arbejde
+                {/* Assign Task Button - For admin/manager to assign to others */}
+                {canAssign && currentTask.status === 'pending' && (
+                  <Button 
+                    onClick={() => setIsEditing(true)} 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Tildel opgave
                   </Button>
                 )}
 
-                {/* Machine Info */}
-                <Button variant="outline" className="flex items-center gap-2">
+                {/* Machine Info - Non-clickable info badge */}
+                <Badge variant="outline" className="flex items-center gap-1">
                   <Truck className="h-4 w-4" />
                   {machine.name} ({machine.model})
-                </Button>
+                </Badge>
 
                 {/* Priority Info */}
                 <Badge variant="outline" className="flex items-center gap-1">
-                  {getPriorityIcon(task.priority || 'medium')}
-                  {task.priority || 'medium'} prioritet
+                  {getPriorityIcon(currentTask.priority || 'medium')}
+                  {currentTask.priority || 'medium'} prioritet
                 </Badge>
               </div>
             </CardContent>
@@ -320,9 +332,12 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
           {/* Task Workflow */}
           <TaskWorkflow
-            task={task}
+            task={currentTask}
             machine={machine}
-            onTaskUpdate={onTaskUpdate}
+            onTaskUpdate={(updatedTask) => {
+              setCurrentTask(updatedTask);
+              onTaskUpdate(updatedTask);
+            }}
             onTimeEntryUpdate={onTimeEntryUpdate}
           />
         </div>

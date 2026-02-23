@@ -110,6 +110,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
           <MachineTasksList 
             machine={machine}
             onTaskUpdate={onTaskUpdate}
+            onTaskSubmit={onTaskSubmit}
           />
         </TabsContent>
         

@@ -44,6 +44,20 @@ export const mockUsers: User[] = [
     email: 'guest@example.com',
     profileImage: null,
   },
+  {
+    id: '7',
+    name: 'Lone Leder',
+    role: 'leader',
+    email: 'lone@example.com',
+    profileImage: null,
+  },
+  {
+    id: '8',
+    name: 'Kurt Lagermand',
+    role: 'lagermand',
+    email: 'kurt@example.com',
+    profileImage: null,
+  },
 ];
 
 export const mockEquipment: Equipment[] = [

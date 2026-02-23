@@ -75,7 +75,15 @@ export const useMachines = () => {
   }, [saveMachines]);
 
   const getMachine = useCallback((machineId: string) => {
-    return machines.find(machine => machine.id === machineId);
+    if (!machineId) return undefined;
+    // Try exact match first
+    let found = machines.find(machine => machine.id === machineId);
+    // If not found, try case-insensitive match
+    if (!found) {
+      const machineIdLower = machineId.toLowerCase();
+      found = machines.find(machine => machine.id.toLowerCase() === machineIdLower);
+    }
+    return found;
   }, [machines]);
 
   return {

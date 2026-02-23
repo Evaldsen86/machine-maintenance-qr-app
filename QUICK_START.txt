@@ -1,0 +1,35 @@
+═══════════════════════════════════════════════════════════
+  🚀 QUICK START - Your App is Running!
+═══════════════════════════════════════════════════════════
+
+✅ SERVER STATUS: RUNNING on port 8081
+
+🌐 OPEN THIS URL IN YOUR BROWSER:
+   http://localhost:8081
+
+   ⚠️  NOT http://localhost:5173 (that's the wrong port!)
+
+═══════════════════════════════════════════════════════════
+
+If you see a blank page:
+
+1. Press F12 to open Developer Tools
+2. Go to "Console" tab
+3. Look for any RED error messages
+4. Copy the error and check what it says
+
+Common issues:
+- If you see "Missing environment variables" → Check .env file
+- If you see "Failed to fetch" → Check Supabase connection
+- If you see "Cannot read property" → There might be a code error
+
+═══════════════════════════════════════════════════════════
+
+To restart the server:
+1. Press Ctrl+C in the terminal
+2. Run: npm run dev
+3. Wait for "ready" message
+4. Open: http://localhost:8081
+
+═══════════════════════════════════════════════════════════
+

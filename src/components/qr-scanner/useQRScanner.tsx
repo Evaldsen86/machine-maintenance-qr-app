@@ -1,32 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/use-toast';
-import { Machine } from '@/types';
-import { getMachines } from '../../lib/api';
+import { useMachines } from '@/hooks/useMachines';
 
 export const useQRScanner = (onClose: () => void, externalOnScan?: (data: string) => void) => {
   const navigate = useNavigate();
   const { setPublicAccess } = useAuth();
+  const { machines } = useMachines();
   const [selectedTab, setSelectedTab] = useState('scan');
-  const [machines, setMachines] = useState<Machine[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    const loadMachines = async () => {
-      try {
-        const data = await getMachines();
-        setMachines(data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load machines from database');
-        setLoading(false);
-      }
-    };
-
-    loadMachines();
-  }, []);
   
   const handleScan = (data: string) => {
     if (externalOnScan) {
@@ -35,11 +17,28 @@ export const useQRScanner = (onClose: () => void, externalOnScan?: (data: string
     }
 
     try {
-      const machine = machines.find(m => m.id === data);
+      // Clean the scanned data
+      const cleanData = data.trim();
+      const cleanDataLower = cleanData.toLowerCase();
+      
+      // Try to find machine by ID (case-insensitive) or QR code
+      const machine = machines.find(m => {
+        const machineIdLower = m.id.toLowerCase();
+        const machineQrCodeLower = m.qrCode?.toLowerCase() || '';
+        
+        return (
+          m.id === cleanData ||
+          machineIdLower === cleanDataLower ||
+          machineIdLower === `machine-${cleanDataLower}` ||
+          machineIdLower === cleanDataLower.replace('machine-', '') ||
+          machineQrCodeLower === cleanDataLower ||
+          m.qrCode === cleanData
+        );
+      });
 
       if (machine) {
         setPublicAccess(true);
-        navigate(`/machine/${data}`);
+        navigate(`/machine/${machine.id}`);
         onClose();
         return;
       }
@@ -62,8 +61,6 @@ export const useQRScanner = (onClose: () => void, externalOnScan?: (data: string
     selectedTab,
     setSelectedTab,
     handleScan,
-    machines,
-    loading,
-    error
+    machines
   };
 };

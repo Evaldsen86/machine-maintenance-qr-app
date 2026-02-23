@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Box, Boxes, View, Smartphone } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Machine, Model3D } from '@/types';
 import { 
   isGLBSupported, 
@@ -17,7 +17,8 @@ import {
   get3DSupportMessage, 
   getARSupportMessage,
   loadModelViewerScript,
-  debug3DModel
+  debug3DModel,
+  retrieveModelFromIndexedDB
 } from '@/utils/model3DUtils';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -63,30 +64,96 @@ export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpe
   useEffect(() => {
     if (!machine || !isOpen) return;
 
-    // First check directly on the machine for models3D array
-    const models: Model3D[] = [];
-    
-    if (machine.models3D && machine.models3D.length > 0) {
-      console.log("Found models directly on machine:", machine.models3D);
-      models.push(...machine.models3D);
-    }
-    
-    // Then check in equipment
-    if (machine.equipment) {
-      machine.equipment.forEach(equipment => {
-        if (equipment.models3D && equipment.models3D.length > 0) {
-          console.log("Found models in equipment:", equipment.models3D);
-          models.push(...equipment.models3D);
+    const loadModels = async () => {
+      // First check directly on the machine for models3D array
+      const models: Model3D[] = [];
+      
+      if (machine.models3D && machine.models3D.length > 0) {
+        console.log("Found models directly on machine:", machine.models3D);
+        // Filter and normalize models to ensure they have required properties
+        const validModelsPromises = machine.models3D
+          .filter(model => model && (model.fileUrl || (model as any).url || model.id))
+          .map(async (model) => {
+            let fileUrl = model.fileUrl || (model as any).url || '';
+            
+            // If fileUrl is a blob URL that might be expired, try to restore from IndexedDB
+            if (fileUrl.startsWith('blob:') && model.id) {
+              try {
+                const restoredUrl = await retrieveModelFromIndexedDB(model.id);
+                if (restoredUrl) {
+                  fileUrl = restoredUrl;
+                  console.log(`Restored blob URL for model ${model.id} from IndexedDB`);
+                }
+              } catch (error) {
+                console.warn(`Could not restore model ${model.id} from IndexedDB:`, error);
+              }
+            }
+            
+            // Normalize model structure - handle both old and new formats
+            const normalized: Model3D = {
+              id: model.id || `model-${Date.now()}-${Math.random()}`,
+              fileUrl: fileUrl,
+              fileName: model.fileName || (model as any).name || 'Unknown',
+              fileType: model.fileType || (model.type === 'glb' ? '3d-glb' : '3d-usdz') || '3d-glb',
+              thumbnail: model.thumbnail || model.thumbnailUrl || '',
+              thumbnailUrl: model.thumbnailUrl || model.thumbnail || '',
+            };
+            return normalized;
+          });
+        
+        const validModels = await Promise.all(validModelsPromises);
+        models.push(...validModels);
+      }
+      
+      // Then check in equipment
+      if (machine.equipment) {
+        for (const equipment of machine.equipment) {
+          if (equipment.models3D && equipment.models3D.length > 0) {
+            console.log("Found models in equipment:", equipment.models3D);
+            const validModelsPromises = equipment.models3D
+              .filter(model => model && (model.fileUrl || (model as any).url || model.id))
+              .map(async (model) => {
+                let fileUrl = model.fileUrl || (model as any).url || '';
+                
+                // If fileUrl is a blob URL that might be expired, try to restore from IndexedDB
+                if (fileUrl.startsWith('blob:') && model.id) {
+                  try {
+                    const restoredUrl = await retrieveModelFromIndexedDB(model.id);
+                    if (restoredUrl) {
+                      fileUrl = restoredUrl;
+                      console.log(`Restored blob URL for model ${model.id} from IndexedDB`);
+                    }
+                  } catch (error) {
+                    console.warn(`Could not restore model ${model.id} from IndexedDB:`, error);
+                  }
+                }
+                
+                const normalized: Model3D = {
+                  id: model.id || `model-${Date.now()}-${Math.random()}`,
+                  fileUrl: fileUrl,
+                  fileName: model.fileName || (model as any).name || 'Unknown',
+                  fileType: model.fileType || (model.type === 'glb' ? '3d-glb' : '3d-usdz') || '3d-glb',
+                  thumbnail: model.thumbnail || model.thumbnailUrl || '',
+                  thumbnailUrl: model.thumbnailUrl || model.thumbnail || '',
+                };
+                return normalized;
+              });
+            
+            const validModels = await Promise.all(validModelsPromises);
+            models.push(...validModels);
+          }
         }
-      });
-    }
+      }
 
-    console.log("Total models found:", models.length, models);
-    setAvailableModels(models);
-    if (models.length > 0) {
-      setSelectedModel(models[0]);
-      debug3DModel(models[0]);
-    }
+      console.log("Total models found:", models.length, models);
+      setAvailableModels(models);
+      if (models.length > 0 && models[0].fileUrl) {
+        setSelectedModel(models[0]);
+        debug3DModel(models[0]);
+      }
+    };
+
+    loadModels();
     
     // Check if user is on mobile
     setIsMobile(/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
@@ -94,17 +161,17 @@ export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpe
 
   // Load the model-viewer script when dialog opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && availableModels.length > 0) {
       setIsLoadingModel(true);
       loadModelViewerScript().then(success => {
         setModelViewerLoaded(success);
         console.log("Model viewer script loaded:", success);
-        if (success) {
-          setSelectedModel(machine.models3D[0]);
+        if (success && availableModels.length > 0 && availableModels[0].fileUrl) {
+          setSelectedModel(availableModels[0]);
         }
       });
     }
-  }, [isOpen, machine]);
+  }, [isOpen, availableModels]);
 
   // Generate AR QR code when selected model changes
   useEffect(() => {
@@ -234,12 +301,12 @@ export const Machine3DViewer: React.FC<Machine3DViewerProps> = ({ machine, isOpe
         </DialogHeader>
 
         <div className="relative w-full h-[60vh]">
-          {selectedModel && modelViewerLoaded ? (
+          {selectedModel && modelViewerLoaded && selectedModel.fileUrl ? (
             <>
               <model-viewer
                 src={selectedModel.fileUrl}
                 alt={`3D model af ${machine.name}`}
-                poster={selectedModel.thumbnail || ''}
+                poster={selectedModel.thumbnail || selectedModel.thumbnailUrl || ''}
                 ar={isARSupported()}
                 ar-modes="webxr scene-viewer quick-look"
                 camera-controls

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -9,7 +9,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon, Clock } from 'lucide-react';
+import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon, Clock, CalendarDays, FileText } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -26,6 +26,8 @@ import MachineMap from '@/components/MachineMap';
 import MachineAddForm from '@/components/machine/MachineAddForm';
 import { BatchQRGenerator } from '@/components/machine/BatchQRGenerator';
 import TaskOverview from '@/components/dashboard/TaskOverview';
+import TaskCalendar from '@/components/dashboard/TaskCalendar';
+import OfferPanel from '@/components/dashboard/OfferPanel';
 import { useAuth } from '@/hooks/useAuth';
 import { useMachines } from '@/hooks/useMachines';
 import QRScanner from '@/components/QRScanner';
@@ -35,6 +37,9 @@ import { toast } from "@/components/ui/use-toast";
 const Dashboard = () => {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromUrl || 'grid');
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
@@ -44,12 +49,18 @@ const Dashboard = () => {
   
   const [showAddMachineDialog, setShowAddMachineDialog] = useState(false);
   const [machineToDelete, setMachineToDelete] = useState<Machine | null>(null);
-  
 
+  useEffect(() => {
+    if (tabFromUrl && ['grid', 'map', 'tasks', 'calendar', 'offers', 'qr'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
   
   const filteredMachines = machines.filter(machine => 
     machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    machine.model.toLowerCase().includes(searchQuery.toLowerCase())
+    machine.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    machine.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (machine.qrCode && machine.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleSelectMachine = (machine: Machine) => {
@@ -223,7 +234,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
             
-            <Tabs defaultValue="grid" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
               <div className="flex items-center justify-between">
                 <TabsList>
                   <TabsTrigger value="grid" onClick={() => setViewMode('grid')}>
@@ -238,6 +249,16 @@ const Dashboard = () => {
                     <Clock className="h-4 w-4 mr-2" />
                     Opgaver
                   </TabsTrigger>
+                  <TabsTrigger value="calendar">
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Kalender
+                  </TabsTrigger>
+                  {hasPermission('leader') && (
+                    <TabsTrigger value="offers">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Tilbud
+                    </TabsTrigger>
+                  )}
                   {hasPermission('admin') && (
                     <TabsTrigger value="qr">
                       <QrCodeIcon className="h-4 w-4 mr-2" />
@@ -281,6 +302,16 @@ const Dashboard = () => {
                   }}
                 />
               </TabsContent>
+
+              <TabsContent value="calendar" className="space-y-4">
+                <TaskCalendar machines={machines} />
+              </TabsContent>
+
+              {hasPermission('leader') && (
+                <TabsContent value="offers" className="space-y-4">
+                  <OfferPanel />
+                </TabsContent>
+              )}
 
               {hasPermission('admin') && (
                 <TabsContent value="qr" className="space-y-4">

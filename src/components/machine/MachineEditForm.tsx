@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from "@/components/ui/use-toast";
 import { Machine, Equipment, EquipmentType, UserRole, Model3D, type Location as MachineLocation } from '@/types';
-import { PlusCircle, Trash2, Upload, Image, Users, Boxes } from 'lucide-react';
+import { PlusCircle, Trash2, Image, Users, Boxes } from 'lucide-react';
 import LocationEditSection from './LocationEditSection';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { equipmentTranslations } from '@/utils/equipmentTranslations';
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/select";
 import {
   DialogHeader,
-  DialogFooter,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -95,7 +94,12 @@ const commonSpecifications = [
   "Vedligeholdelsesinterval",
   "Driftstimer",
   "Producent",
-  "Modelår"
+  "Modelår",
+  "Akselkonfiguration",
+  "Aksel",
+  "6×2",
+  "6×4",
+  "8×4"
 ];
 const specificationOptions = commonSpecifications.map(spec => ({ value: spec, label: spec }));
 console.log('specificationOptions:', specificationOptions);
@@ -168,32 +172,22 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
 
   const handleSpecificationChange = (equipmentIndex: number, oldKey: string, newKey: string, value: string) => {
     const updatedEquipment = [...equipment];
-    const specifications = { ...updatedEquipment[equipmentIndex].specifications };
+    const currentSpecs = updatedEquipment[equipmentIndex].specifications || {};
+    const specifications = { ...currentSpecs };
     
     if (oldKey !== newKey) {
+      // Gem værdien først, før vi sletter den gamle nøgle
+      const oldValue = specifications[oldKey] || '';
       delete specifications[oldKey];
-      specifications[newKey] = specifications[oldKey] || '';
+      specifications[newKey] = oldValue;
     } else {
+      // Opdater værdien for samme nøgle
       specifications[oldKey] = value;
     }
     
     updatedEquipment[equipmentIndex] = {
       ...updatedEquipment[equipmentIndex],
       specifications
-    };
-    
-    setEquipment(updatedEquipment);
-  };
-
-  const addSpecification = (equipmentIndex: number) => {
-    const updatedEquipment = [...equipment];
-    
-    updatedEquipment[equipmentIndex] = {
-      ...updatedEquipment[equipmentIndex],
-      specifications: {
-        ...updatedEquipment[equipmentIndex].specifications,
-        "Ny specifikation": ""
-      }
     };
     
     setEquipment(updatedEquipment);
@@ -542,14 +536,15 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
-                    <AccordionContent>
-                      <div className="space-y-6 pr-2">
+                    <AccordionContent className="!overflow-visible">
+                      <div className="max-h-[60vh] overflow-y-auto pr-4">
+                        <div className="space-y-4 pr-2">
                         {Object.entries(equip.specifications || {}).map(([key, value], specIndex) => (
-                          <div key={`${key}-${specIndex}`} className="flex items-start gap-2">
-                            <div className="w-1/3">
+                          <div key={`${key}-${specIndex}`} className="flex items-center gap-2">
+                            <div className="w-1/3 flex-shrink-0">
                               <CreatableSelect
                                 options={specificationOptions}
-                                value={specificationOptions.find(opt => opt.value === key) || null}
+                                value={specificationOptions.find(opt => opt.value === key) || { value: key, label: key }}
                                 onChange={(newValue) => {
                                   if (newValue) {
                                     handleSpecificationChange(index, key, newValue.value, value);
@@ -580,7 +575,7 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                             <Input 
                               value={value} 
                               onChange={(e) => handleSpecificationChange(index, key, key, e.target.value)}
-                              className="w-full"
+                              className="flex-1 min-w-0"
                               placeholder="Værdi"
                             />
                             <Button 
@@ -588,7 +583,7 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                               variant="outline" 
                               size="icon" 
                               onClick={() => removeSpecification(index, key)}
-                              className="mt-0.5"
+                              className="flex-shrink-0"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -639,6 +634,7 @@ const MachineEditForm: React.FC<MachineEditFormProps> = ({
                               setEquipment(updatedEquipment);
                             }}
                           />
+                        </div>
                         </div>
                       </div>
                     </AccordionContent>

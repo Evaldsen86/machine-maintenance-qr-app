@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  Clock, 
   User, 
   Truck,
   AlertTriangle,
@@ -22,16 +21,19 @@ import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { mockUsers } from '@/data/mockData';
 import { formatCurrency } from '@/utils/currencyUtils';
 import TaskDialog from '@/components/dashboard/TaskDialog';
+import TaskForm from '@/components/service/TaskForm';
 
 interface MachineTasksListProps {
   machine: Machine;
   onTaskUpdate: (task: Task) => void;
+  onTaskSubmit?: (task: Task) => void;
 }
 
-const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpdate }) => {
-  const { user, hasPermission } = useAuth();
+const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpdate, onTaskSubmit }) => {
+  const { hasPermission } = useAuth();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
 
   const tasks = machine.tasks || [];
   const activeTasks = tasks.filter(task => 
@@ -73,6 +75,17 @@ const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpda
     setShowTaskDialog(false);
   };
 
+  const handleTaskSubmit = (newTask: Task) => {
+    if (onTaskSubmit) {
+      onTaskSubmit(newTask);
+      setShowTaskForm(false);
+      toast({
+        title: "Opgave oprettet",
+        description: `${newTask.title} er blevet oprettet.`,
+      });
+    }
+  };
+
   if (tasks.length === 0) {
     return (
       <Card>
@@ -98,16 +111,30 @@ const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpda
               {activeTasks.length} aktive
             </Badge>
           </CardTitle>
-          {hasPermission('admin') && (
-            <Button size="sm" variant="outline">
+          {hasPermission('admin') && onTaskSubmit && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setShowTaskForm(!showTaskForm)}
+            >
               <Plus className="h-4 w-4 mr-2" />
-              Ny opgave
+              {showTaskForm ? 'Annuller' : 'Ny opgave'}
             </Button>
           )}
         </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
+        {/* Task Form */}
+        {showTaskForm && onTaskSubmit && (
+          <div className="mb-4">
+            <TaskForm
+              machineId={machine.id}
+              onSubmit={handleTaskSubmit}
+            />
+          </div>
+        )}
+
         {activeTasks.map((task) => {
           const statusDetails = getStatusDetails(task.status || 'pending');
           const dueDate = new Date(task.dueDate);

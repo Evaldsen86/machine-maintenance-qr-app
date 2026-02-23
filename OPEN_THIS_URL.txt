@@ -1,0 +1,23 @@
+═══════════════════════════════════════════════════════════
+  ✅ SERVER IS RUNNING!
+═══════════════════════════════════════════════════════════
+
+Copy and paste this EXACT URL into your browser:
+
+    http://localhost:8081
+
+⚠️  IMPORTANT:
+   - Must include "http://"
+   - Must include ":8081" at the end
+   - NOT just "localhost"
+
+═══════════════════════════════════════════════════════════
+
+If you still see "Connection Refused":
+
+1. Make sure the terminal shows "VITE ready"
+2. Try: http://127.0.0.1:8081 (instead of localhost)
+3. Check Windows Firewall isn't blocking it
+
+═══════════════════════════════════════════════════════════
+

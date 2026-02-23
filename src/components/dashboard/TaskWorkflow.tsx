@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Task, Machine, TimeEntry, Invoice } from '@/types';
+import { Task, Machine, TimeEntry, Invoice, InvoiceItem, Part } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -14,8 +12,7 @@ import {
   Square, 
   CheckCircle, 
   Clock, 
-  User, 
-  Truck,
+  User,
   AlertTriangle,
   Circle,
   ArrowUp,
@@ -27,9 +24,12 @@ import {
 import { translateType } from '@/utils/equipmentTranslations';
 import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { mockUsers } from '@/data/mockData';
-import { formatDateTime, formatDuration } from '@/utils/dateUtils';
+import { addDays, formatDateTime, formatDuration } from '@/utils/dateUtils';
 import { formatCurrency } from '@/utils/currencyUtils';
 import InvoiceGenerator from '@/components/invoice/InvoiceGenerator';
+import InvoicePreview from '@/components/invoice/InvoicePreview';
+import { useInvoices } from '@/hooks/useInvoices';
+import PartsManager from '@/components/machine/PartsManager';
 
 interface TaskWorkflowProps {
   task: Task;
@@ -45,13 +45,23 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
   onTimeEntryUpdate 
 }) => {
   const { user, hasPermission } = useAuth();
+  const { addInvoice } = useInvoices();
   const [isWorking, setIsWorking] = useState(false);
   const [currentTimeEntry, setCurrentTimeEntry] = useState<TimeEntry | null>(null);
+  const [activeTimeEntries, setActiveTimeEntries] = useState<TimeEntry[]>([]);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [hourlyRate, setHourlyRate] = useState(task.hourlyRate || 750);
   const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours || 2);
   const [customerName, setCustomerName] = useState(task.customerName || '');
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [partsUsed, setPartsUsed] = useState<Part[]>([]);
+
+  // Update state when task prop changes
+  useEffect(() => {
+    setHourlyRate(task.hourlyRate || 750);
+    setEstimatedHours(task.estimatedHours || 2);
+    setCustomerName(task.customerName || '');
+  }, [task.hourlyRate, task.estimatedHours, task.customerName]);
 
   // Load time entries for this task
   useEffect(() => {
@@ -65,11 +75,19 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           );
           setTimeEntries(taskEntries);
           
-          // Find active entry for this task
-          const active = taskEntries.find((entry: TimeEntry) => entry.status === 'active');
-          if (active) {
-            setCurrentTimeEntry(active);
+          // Find ALL active entries for this task (multiple people can work)
+          const activeEntries = taskEntries.filter((entry: TimeEntry) => entry.status === 'active');
+          setActiveTimeEntries(activeEntries);
+          
+          // Find active entry for current user
+          const myActiveEntry = activeEntries.find((entry: TimeEntry) => entry.userId === user?.id);
+          if (myActiveEntry) {
+            setCurrentTimeEntry(myActiveEntry);
             setIsWorking(true);
+            setPartsUsed(myActiveEntry.partsUsed || []);
+          } else {
+            setCurrentTimeEntry(null);
+            setIsWorking(false);
           }
         }
       } catch (error) {
@@ -78,7 +96,11 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
     };
     
     loadTimeEntries();
-  }, [machine.id, task.id, task.timeEntryId, task.title]);
+    
+    // Refresh active entries periodically
+    const interval = setInterval(loadTimeEntries, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, [machine.id, task.id, task.timeEntryId, task.title, user?.id]);
 
   const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin');
   const canApprove = hasPermission('admin');
@@ -103,23 +125,33 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
       description: `Arbejde på: ${task.title}`,
       status: 'active',
       equipmentType: task.equipmentType,
+      partsUsed: []
     };
 
     setCurrentTimeEntry(newTimeEntry);
     setIsWorking(true);
+    setPartsUsed([]);
 
-    // Update task with time entry
-    const updatedTask: Task = {
-      ...task,
-      timeEntryId: newTimeEntry.id,
-      status: 'in-progress'
-    };
-    onTaskUpdate(updatedTask);
+    // Update task status to in-progress if not already
+    if (task.status === 'pending') {
+      const updatedTask: Task = {
+        ...task,
+        status: 'in-progress'
+      };
+      onTaskUpdate(updatedTask);
+    }
 
-    // Save time entry
+    // Save time entry (multiple people can have active entries)
     const existingEntries = JSON.parse(localStorage.getItem(`time_entries_${machine.id}`) || '[]');
     const updatedEntries = [newTimeEntry, ...existingEntries];
     localStorage.setItem(`time_entries_${machine.id}`, JSON.stringify(updatedEntries));
+    
+    // Update active entries list
+    const taskEntries = updatedEntries.filter((entry: TimeEntry) => 
+      entry.description.includes(task.title) || entry.id === task.timeEntryId
+    );
+    const activeEntries = taskEntries.filter((entry: TimeEntry) => entry.status === 'active');
+    setActiveTimeEntries(activeEntries);
 
     toast({
       title: "Arbejde startet",
@@ -138,7 +170,8 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
       ...currentTimeEntry,
       endTime: endTime.toISOString(),
       duration,
-      status: 'completed'
+      status: 'completed',
+      partsUsed: partsUsed
     };
 
     setCurrentTimeEntry(null);
@@ -157,6 +190,22 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
       entry.id === currentTimeEntry.id ? updatedTimeEntry : entry
     );
     localStorage.setItem(`time_entries_${machine.id}`, JSON.stringify(updatedEntries));
+    
+    // Update active entries list (remove this entry)
+    const taskEntries = updatedEntries.filter((entry: TimeEntry) => 
+      entry.description.includes(task.title) || entry.id === task.timeEntryId
+    );
+    const activeEntries = taskEntries.filter((entry: TimeEntry) => entry.status === 'active');
+    setActiveTimeEntries(activeEntries);
+    
+    // If no one is working, set task back to pending
+    if (activeEntries.length === 0 && task.status === 'in-progress') {
+      const updatedTask: Task = {
+        ...task,
+        status: 'pending'
+      };
+      onTaskUpdate(updatedTask);
+    }
 
     if (onTimeEntryUpdate) {
       onTimeEntryUpdate(updatedTimeEntry);
@@ -167,6 +216,26 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
       description: `Arbejde på ${task.title} er afsluttet. Tid: ${formatDuration(duration)}`,
     });
   };
+
+  // Update parts in current time entry
+  useEffect(() => {
+    if (currentTimeEntry && isWorking) {
+      const existingEntries = JSON.parse(localStorage.getItem(`time_entries_${machine.id}`) || '[]');
+      const updatedEntries = existingEntries.map((entry: TimeEntry) => 
+        entry.id === currentTimeEntry.id ? { ...entry, partsUsed } : entry
+      );
+      localStorage.setItem(`time_entries_${machine.id}`, JSON.stringify(updatedEntries));
+      
+      setCurrentTimeEntry(prev => prev ? { ...prev, partsUsed } : null);
+      
+      // Update active entries list
+      const activeEntries = updatedEntries.filter((entry: TimeEntry) => 
+        entry.status === 'active' && 
+        (entry.description.includes(task.title) || entry.id === task.timeEntryId)
+      );
+      setActiveTimeEntries(activeEntries);
+    }
+  }, [partsUsed, currentTimeEntry?.id, isWorking, machine.id, task.title, task.timeEntryId]);
 
   const approveTask = () => {
     if (!user) return;
@@ -200,9 +269,14 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
   };
 
   const generateInvoice = (invoice: Invoice) => {
+    const saved = addInvoice({
+      ...invoice,
+      taskId: task.id,
+      machineId: machine.id,
+    });
     const updatedTask: Task = {
       ...task,
-      invoiceId: invoice.id,
+      invoiceId: saved.id,
       status: 'invoiced'
     };
     onTaskUpdate(updatedTask);
@@ -210,7 +284,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
     setShowInvoiceDialog(false);
     toast({
       title: "Faktura genereret",
-      description: "Fakturaen er blevet genereret og tilknyttet opgaven.",
+      description: "Fakturaen er gemt i arkivet og tilknyttet opgaven.",
     });
   };
 
@@ -244,8 +318,48 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
     .filter(entry => entry.status === 'completed')
     .reduce((sum, entry) => sum + (entry.duration || 0), 0);
 
-  const estimatedCost = (estimatedHours * hourlyRate);
   const actualCost = (totalTime / 60) * hourlyRate;
+
+  const previewVatRate = 25;
+  const completedEntries = timeEntries.filter(entry => entry.status === 'completed');
+  const previewItems = completedEntries.flatMap(entry => {
+    const items: Part[] = entry.partsUsed || [];
+    const invoiceItems: InvoiceItem[] = [];
+
+    if (entry.duration) {
+      const hours = entry.duration / 60;
+      invoiceItems.push({
+        id: `time-${entry.id}`,
+        type: 'time',
+        description: entry.description,
+        quantity: hours,
+        unitPrice: hourlyRate,
+        totalPrice: hours * hourlyRate,
+        timeEntryId: entry.id
+      });
+    }
+
+    items.forEach(part => {
+      invoiceItems.push({
+        id: `part-${part.id}`,
+        type: 'part',
+        description: part.name,
+        quantity: part.quantity,
+        unitPrice: part.unitPrice,
+        totalPrice: part.totalPrice,
+        partId: part.id
+      });
+    });
+
+    return invoiceItems;
+  });
+
+  const previewSubtotal = previewItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const previewVat = previewSubtotal * (previewVatRate / 100);
+  const previewTotal = previewSubtotal + previewVat;
+  const showInvoicePreview =
+    (task.status === 'completed' || task.status === 'approved' || task.status === 'invoiced') &&
+    previewItems.length > 0;
 
   return (
     <Card className="border-l-4 border-l-blue-500">
@@ -294,22 +408,76 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           )}
         </div>
 
-        {/* Time Tracking */}
-        {isWorking && currentTimeEntry && (
+        {/* Active Workers List - Show all people working on this task */}
+        {activeTimeEntries.length > 0 && (
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-blue-800">Arbejder nu</span>
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-blue-600" />
+              <span className="font-medium text-blue-800">
+                Arbejder nu ({activeTimeEntries.length})
+              </span>
+            </div>
+            <div className="space-y-2">
+              {activeTimeEntries.map((entry) => {
+                const isMyEntry = entry.userId === user?.id;
+                return (
+                  <div 
+                    key={entry.id}
+                    className={`flex items-center justify-between p-2 rounded ${
+                      isMyEntry ? 'bg-blue-100 border border-blue-300' : 'bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">{entry.userName}</span>
+                      {isMyEntry && (
+                        <Badge variant="outline" className="text-xs">Dig</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">
+                        Startet: {formatDateTime(entry.startTime)}
+                      </span>
+                      {isMyEntry && (
+                        <Button onClick={stopWorking} variant="destructive" size="sm">
+                          <Square className="h-3 w-3 mr-1" />
+                          Stop
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* My Time Tracking - Show when I'm working */}
+        {isWorking && currentTimeEntry && (
+          <div className="space-y-4">
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-green-800">Dit arbejde</span>
+                </div>
+                <Button onClick={stopWorking} variant="destructive" size="sm">
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop arbejde
+                </Button>
               </div>
-              <Button onClick={stopWorking} variant="destructive" size="sm">
-                <Square className="h-4 w-4 mr-2" />
-                Stop arbejde
-              </Button>
+              <div className="text-sm text-green-700">
+                Startet: {formatDateTime(currentTimeEntry.startTime)}
+              </div>
             </div>
-            <div className="text-sm text-blue-700">
-              Startet: {formatDateTime(currentTimeEntry.startTime)}
-            </div>
+            
+            {/* Parts Manager - Show when working */}
+            {(hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin') || hasPermission('blacksmith')) && (
+              <PartsManager
+                parts={partsUsed}
+                onPartsChange={setPartsUsed}
+              />
+            )}
           </div>
         )}
 
@@ -330,6 +498,20 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           </div>
         )}
 
+        {showInvoicePreview && (
+          <InvoicePreview
+            customerName={customerName || 'Kunde'}
+            invoiceDate={new Date().toISOString()}
+            dueDate={addDays(new Date(), 14).toISOString()}
+            items={previewItems}
+            subtotal={previewSubtotal}
+            vat={previewVat}
+            total={previewTotal}
+            title="Fakturaforhåndsvisning"
+            description="Vises når opgaven er færdig"
+          />
+        )}
+
         {/* Action Buttons */}
         <div className="flex gap-2">
           {/* Take Task Button - Show if not assigned to anyone or not assigned to me */}
@@ -340,11 +522,19 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
             </Button>
           )}
 
-          {/* Start Work Button - Show if assigned to me OR if not assigned to anyone */}
-          {task.status === 'pending' && canTakeTask && (isAssignedToMe || !task.assignedTo) && (
+          {/* Start Work Button - Allow multiple people to work on same task */}
+          {task.status === 'pending' && canTakeTask && (isAssignedToMe || !task.assignedTo || canApprove) && !isWorking && (
             <Button onClick={startWorking} className="flex-1">
               <Play className="h-4 w-4 mr-2" />
               Start arbejde
+            </Button>
+          )}
+          
+          {/* Continue Work Button - If already working */}
+          {task.status === 'in-progress' && canTakeTask && !isWorking && (
+            <Button onClick={startWorking} className="flex-1" variant="outline">
+              <Play className="h-4 w-4 mr-2" />
+              Deltag i arbejdet
             </Button>
           )}
 

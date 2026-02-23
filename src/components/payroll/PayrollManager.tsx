@@ -3,14 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { TimeEntry, PayrollEntry } from '@/types';
-import { formatDate, getStartOfMonth, getEndOfMonth } from '@/utils/dateUtils';
-import { formatCurrency } from '@/utils/currencyUtils';
-import { Download, FileText, Check, X } from 'lucide-react';
+import { getStartOfMonth } from '@/utils/dateUtils';
+import { Download, FileText, Check, X, Send } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface PayrollManagerProps {
   timeEntries: TimeEntry[];
@@ -124,6 +123,32 @@ const PayrollManager: React.FC<PayrollManagerProps> = ({
     });
   };
 
+  const handleSendToEmployee = (entryId: string) => {
+    const entry = payrollEntries.find(entry => entry.id === entryId);
+    if (!entry || !user) return;
+
+    // In a real app, this would send an email or notification
+    // For now, we'll just mark it as sent and show a toast
+    const updatedEntry: PayrollEntry = {
+      ...entry,
+      status: 'exported',
+      exportedAt: new Date().toISOString()
+    };
+
+    setPayrollEntries(prev => prev.map(e => 
+      e.id === entryId ? updatedEntry : e
+    ));
+
+    if (onPayrollEntryUpdate) {
+      onPayrollEntryUpdate(updatedEntry);
+    }
+
+    toast({
+      title: "Lønseddel sendt",
+      description: `Lønsedlen for ${entry.period} er blevet sendt til ${entry.userName}.`,
+    });
+  };
+
   const handleDeletePayroll = (entryId: string) => {
     setEntryToDelete(entryId);
     setShowDeleteDialog(true);
@@ -224,13 +249,30 @@ const PayrollManager: React.FC<PayrollManagerProps> = ({
                       )}
                       
                       {entry.status === 'approved' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleExportPayroll(entry.id)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendToEmployee(entry.id)}
+                            title="Send til medarbejder"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleExportPayroll(entry.id)}
+                            title="Eksporter til lønsystem"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      
+                      {entry.status === 'exported' && (
+                        <Badge variant="outline" className="text-xs">
+                          Sendt
+                        </Badge>
                       )}
                       
                       {entry.status !== 'exported' && (

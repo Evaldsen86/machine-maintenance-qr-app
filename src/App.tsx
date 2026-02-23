@@ -12,6 +12,9 @@ import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import AddMachine from "./pages/AddMachine";
 import UserManagement from "./pages/UserManagement";
+import Elearning from "./pages/Elearning";
+import Inventory from "./pages/Inventory";
+import Invoices from "./pages/Invoices";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 
@@ -63,6 +66,17 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Inventory route - lagermand, leader, admin
+const InventoryRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, hasPermission } = useAuth();
+  
+  if (!isAuthenticated || !hasPermission('lagermand')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -92,10 +106,30 @@ const AppRoutes = () => {
           <UserManagement />
         </AdminRoute>
       } />
+      <Route path="/inventory" element={
+        <InventoryRoute>
+          <Inventory />
+        </InventoryRoute>
+      } />
+      <Route path="/invoices" element={
+        <ProtectedRoute>
+          <Invoices />
+        </ProtectedRoute>
+      } />
       <Route path="/settings" element={
         <AdminRoute>
           <Settings />
         </AdminRoute>
+      } />
+      <Route path="/elearning" element={
+        <ProtectedRoute>
+          <Elearning />
+        </ProtectedRoute>
+      } />
+      <Route path="/elearning/machine/:id" element={
+        <ProtectedRoute>
+          <Elearning />
+        </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
     </Routes>

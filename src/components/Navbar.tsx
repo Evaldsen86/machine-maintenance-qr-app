@@ -26,9 +26,18 @@ import {
   LogOut, 
   User,
   UserCog,
-  FilePlus
+  FilePlus,
+  FileText,
+  GraduationCap,
+  Package
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+
+const canAccessInventory = (role: string | undefined) =>
+  role === 'admin' || role === 'leader' || role === 'lagermand';
+
+const canAccessInvoices = (role: string | undefined) =>
+  role === 'admin' || role === 'leader' || role === 'lagermand';
 import { useIsMobile } from '@/hooks/use-mobile';
 import QRScanner from './QRScanner';
 
@@ -122,6 +131,51 @@ const Navbar: React.FC = () => {
                       Scan QR-kode
                     </button>
                   </SheetClose>
+                  {canAccessInventory(user?.role) && (
+                    <SheetClose asChild>
+                      <Link 
+                        to="/inventory" 
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          isActive('/inventory') 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-secondary'
+                        }`}
+                      >
+                        <Package className="h-4 w-4" />
+                        Lager
+                      </Link>
+                    </SheetClose>
+                  )}
+                  {canAccessInvoices(user?.role) && (
+                    <SheetClose asChild>
+                      <Link 
+                        to="/invoices" 
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          isActive('/invoices') 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-secondary'
+                        }`}
+                      >
+                        <FileText className="h-4 w-4" />
+                        Fakturaer
+                      </Link>
+                    </SheetClose>
+                  )}
+                  {(user?.role === 'driver' || user?.role === 'admin' || user?.role === 'mechanic' || user?.role === 'technician') && (
+                    <SheetClose asChild>
+                      <Link 
+                        to="/elearning" 
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          isActive('/elearning') 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-secondary'
+                        }`}
+                      >
+                        <GraduationCap className="h-4 w-4" />
+                        E-Learning
+                      </Link>
+                    </SheetClose>
+                  )}
                   {isAuthenticated && user?.role === 'admin' && (
                     <>
                       <SheetClose asChild>
@@ -182,6 +236,32 @@ const Navbar: React.FC = () => {
                   <QrCode className="h-4 w-4 mr-1" />
                   Scan QR
                 </Button>
+                {canAccessInventory(user?.role) && (
+                  <Link 
+                    to="/inventory" 
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      isActive('/inventory') ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Package className="h-4 w-4 mr-1" />
+                      Lager
+                    </div>
+                  </Link>
+                )}
+                {canAccessInvoices(user?.role) && (
+                  <Link 
+                    to="/invoices" 
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      isActive('/invoices') ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <FileText className="h-4 w-4 mr-1" />
+                      Fakturaer
+                    </div>
+                  </Link>
+                )}
                 {user && user.role === 'admin' && (
                   <>
                     <Link 
