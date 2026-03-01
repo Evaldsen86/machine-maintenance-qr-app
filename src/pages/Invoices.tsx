@@ -15,7 +15,7 @@ import { formatCurrency } from '@/utils/currencyUtils';
 import { formatDate } from '@/utils/dateUtils';
 import { generateInvoicePdf } from '@/utils/invoicePdf';
 import { Invoice } from '@/types';
-import { FileText, Download, Search, Eye } from 'lucide-react';
+import { FileText, Download, Search, Eye, Archive } from 'lucide-react';
 import InvoicePreview from '@/components/invoice/InvoicePreview';
 
 const statusLabels: Record<string, string> = {
@@ -89,6 +89,10 @@ const Invoices: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/arkiv')}>
+              <Archive className="h-4 w-4 mr-2" />
+              Arkiv
+            </Button>
             <Button variant="outline" onClick={() => navigate('/dashboard?tab=offers')}>
               <FileText className="h-4 w-4 mr-2" />
               Til tilbud
@@ -172,8 +176,8 @@ const Invoices: React.FC = () => {
                     key={inv.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4 hover:bg-muted/30"
                   >
-                    <div>
-                      <div className="font-medium">{inv.customerName}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{inv.customerName}</div>
                       <div className="text-sm text-muted-foreground">
                         {inv.id} · {formatDate(inv.date)}
                       </div>
@@ -181,11 +185,11 @@ const Invoices: React.FC = () => {
                         <div className="text-xs text-muted-foreground mt-1">Fra tilbud</div>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
                       <Badge variant={statusVariants[inv.status] || 'outline'}>
                         {statusLabels[inv.status] || inv.status}
                       </Badge>
-                      <span className="font-semibold">{formatCurrency(inv.total)}</span>
+                      <span className="font-semibold whitespace-nowrap">{formatCurrency(inv.total)}</span>
                       <Button variant="ghost" size="sm" onClick={() => openView(inv)}>
                         <Eye className="h-4 w-4 mr-1" />
                         Se

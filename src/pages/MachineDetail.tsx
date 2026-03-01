@@ -526,6 +526,29 @@ const MachineDetail = () => {
       description: `"${newDocument.title}" er blevet tilføjet til maskinen.`,
     });
   };
+
+  const handleDocumentsAdd = (newDocuments: Document[]) => {
+    if (newDocuments.length === 0) return;
+    setMachineDocuments(prevDocs => [...newDocuments, ...prevDocs]);
+    
+    setMachineState(prevState => {
+      if (!prevState) return undefined;
+      
+      const updatedMachine = {
+        ...prevState,
+        documents: [...newDocuments, ...(prevState.documents || [])]
+      };
+      
+      updateMachineInStorage(updatedMachine);
+      
+      return updatedMachine;
+    });
+    
+    toast({
+      title: "Filer tilføjet",
+      description: `${newDocuments.length} filer er blevet tilføjet til maskinen.`,
+    });
+  };
   
   const handleDocumentUpdate = (updatedDocument: Document) => {
     setMachineDocuments(prevDocs => 
@@ -699,6 +722,7 @@ const MachineDetail = () => {
               onTaskComplete={handleTaskComplete}
               onTaskUpdate={handleTaskUpdate}
               onDocumentAdd={handleDocumentAdd}
+              onDocumentsAdd={handleDocumentsAdd}
               onDocumentUpdate={handleDocumentUpdate}
               onOilAdd={handleOilAdd}
             />
@@ -720,6 +744,7 @@ const MachineDetail = () => {
               onTaskComplete={handleTaskComplete}
               onTaskUpdate={handleTaskUpdate}
               onDocumentAdd={handleDocumentAdd}
+              onDocumentsAdd={handleDocumentsAdd}
               onDocumentUpdate={handleDocumentUpdate}
               onOilAdd={handleOilAdd}
             />

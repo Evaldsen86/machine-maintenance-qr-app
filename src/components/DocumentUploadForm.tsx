@@ -21,12 +21,23 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Document } from "@/types";
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Upload, FileText, AlertCircle, Folder, ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface DocumentFolder {
+  id: string;
+  title: string;
+}
 
 interface DocumentUploadFormProps {
   onSave: (document: Document) => void;
+  onSaveMultiple?: (documents: Document[]) => void;
   onCancel: () => void;
+  /** Eksisterende mapper til valg ved upload */
+  folders?: DocumentFolder[];
+  /** Valgt mappe ved åbning (f.eks. når man klikker "Upload til mappe") */
+  defaultFolderId?: string;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -38,20 +49,29 @@ const ALLOWED_FILE_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
   'image/jpeg',
-  'image/png'
+  'image/png',
+  'image/webp',
+  'image/gif'
 ];
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({ 
   onSave, 
-  onCancel 
+  onSaveMultiple,
+  onCancel,
+  folders = [],
+  defaultFolderId
 }) => {
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadToFolderId, setUploadToFolderId] = useState<string | undefined>(defaultFolderId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
 
   const formSchema = z.object({
-    title: z.string().min(2, "Titlen skal være mindst 2 tegn."),
-    type: z.enum(["manual", "service", "certification", "other"]),
+    title: z.string().optional(),
+    type: z.enum(["manual", "service", "certification", "other", "image"]),
     description: z.string().optional(),
   });
 
@@ -65,38 +85,44 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "Filen er for stor. Maksimal størrelse er 10MB.",
-      });
-      return;
+    const validFiles: File[] = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          variant: "destructive",
+          title: "Filen for stor",
+          description: `"${file.name}" er over 10MB og er sprunget over.`,
+        });
+        continue;
+      }
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Filtype ikke understøttet",
+          description: `"${file.name}" - Tilladte formater: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG, WEBP, GIF`,
+        });
+        continue;
+      }
+      validFiles.push(file);
     }
 
-    // Validate file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      toast({
-        variant: "destructive",
-        title: "Fejl",
-        description: "Filtypen er ikke understøttet. Tilladte formater: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG",
-      });
-      return;
-    }
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-    setSelectedFile(file);
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       toast({
         variant: "destructive",
         title: "Fejl",
-        description: "Vælg venligst en fil at uploade.",
+        description: "Vælg mindst én fil at uploade.",
       });
       return;
     }
@@ -104,37 +130,58 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
     try {
       setIsUploading(true);
 
-      // Here you would typically upload the file to your server/storage
-      // For now, we'll create a mock URL
-      const mockFileUrl = URL.createObjectURL(selectedFile);
+      const documents: Document[] = [];
+      const baseTitle = values.title?.trim() || '';
+      const useFilenameAsTitle = selectedFiles.length > 1 || !baseTitle;
 
-      const newDocument: Document = {
-        id: `doc-${Date.now()}`,
-        title: values.title,
-        type: values.type,
-        fileUrl: mockFileUrl,
-        url: mockFileUrl,
-        description: values.description,
-        uploadedAt: new Date().toISOString(),
-        uploadDate: new Date().toISOString(),
-        fileName: selectedFile.name,
-        uploadedBy: 'Current User',
-        accessPermissions: ['admin', 'mechanic', 'technician'],
-        accessLevel: 'public',
-      };
-      
-      onSave(newDocument);
-      
-      toast({
-        title: "Dokument uploadet",
-        description: "Dokumentet er blevet tilføjet til maskinen.",
-      });
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const mockFileUrl = URL.createObjectURL(file);
+        const docType = IMAGE_TYPES.includes(file.type) ? 'image' : (values.type || 'other');
+        const title = useFilenameAsTitle 
+          ? file.name.replace(/\.[^/.]+$/, '') 
+          : (baseTitle + (selectedFiles.length > 1 ? ` (${i + 1})` : ''));
+
+        const newDocument: Document = {
+          id: `doc-${Date.now()}-${i}`,
+          title,
+          type: docType,
+          fileUrl: mockFileUrl,
+          url: mockFileUrl,
+          description: values.description,
+          uploadedAt: new Date().toISOString(),
+          uploadDate: new Date().toISOString(),
+          fileName: file.name,
+          uploadedBy: user?.name || 'Bruger',
+          accessPermissions: ['admin', 'mechanic', 'technician'],
+          accessLevel: 'public',
+          folderId: uploadToFolderId || undefined,
+        };
+
+        documents.push(newDocument);
+      }
+
+      if (onSaveMultiple && documents.length > 1) {
+        onSaveMultiple(documents);
+        toast({
+          title: "Filer uploadet",
+          description: `${documents.length} filer er blevet tilføjet.`,
+        });
+      } else {
+        documents.forEach(doc => onSave(doc));
+        toast({
+          title: documents.length > 1 ? "Filer uploadet" : "Dokument uploadet",
+          description: documents.length > 1 
+            ? `${documents.length} filer er blevet tilføjet.`
+            : "Dokumentet er blevet tilføjet til maskinen.",
+        });
+      }
     } catch (error) {
       console.error("Error uploading document:", error);
       toast({
         variant: "destructive",
         title: "Fejl",
-        description: "Der opstod en fejl under upload af dokumentet.",
+        description: "Der opstod en fejl under upload.",
       });
     } finally {
       setIsUploading(false);
@@ -143,23 +190,59 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="text-xl font-semibold">Upload nyt dokument</div>
+      <div className="text-xl font-semibold">Upload dokument(er)</div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Titel</FormLabel>
-                <FormControl>
-                  <Input placeholder="Indtast dokumentets titel" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {folders.length > 0 && (
+            <div className="space-y-2">
+              <FormLabel>Upload til mappe (valgfri)</FormLabel>
+              <Select
+                value={uploadToFolderId || 'none'}
+                onValueChange={(v) => setUploadToFolderId(v === 'none' ? undefined : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Rod (ingen mappe)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="flex items-center gap-2">
+                      <Folder className="h-4 w-4" />
+                      Rod (ingen mappe)
+                    </span>
+                  </SelectItem>
+                  {folders.map(f => (
+                    <SelectItem key={f.id} value={f.id}>
+                      <span className="flex items-center gap-2">
+                        <Folder className="h-4 w-4" />
+                        {f.title}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {(selectedFiles.length === 0 || selectedFiles.length === 1) && (
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Titel {selectedFiles.length > 1 ? '(bruges ikke ved flere filer)' : ''}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder={selectedFiles.length > 1 ? "Filnavne bruges som titler" : "Indtast dokumentets titel"} 
+                      {...field} 
+                      disabled={selectedFiles.length > 1}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}
@@ -169,7 +252,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                 <FormLabel>Dokumenttype</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -180,6 +263,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                     <SelectItem value="manual">Brugermanual</SelectItem>
                     <SelectItem value="service">Servicehåndbog</SelectItem>
                     <SelectItem value="certification">Certifikat</SelectItem>
+                    <SelectItem value="image">Billeder</SelectItem>
                     <SelectItem value="other">Andet</SelectItem>
                   </SelectContent>
                 </Select>
@@ -189,7 +273,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           />
 
           <div className="space-y-2">
-            <FormLabel>Dokument</FormLabel>
+            <FormLabel>Filer (flere valg muligt)</FormLabel>
             <div 
               className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:border-primary transition-colors"
               onClick={() => fileInputRef.current?.click()}
@@ -199,23 +283,41 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                 type="file"
                 className="hidden"
                 onChange={handleFileChange}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.webp,.gif"
+                multiple
               />
               
-              {selectedFile ? (
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="font-medium">{selectedFile.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                  </span>
+              {selectedFiles.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{selectedFiles.length} fil(er) valgt</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 justify-center max-h-24 overflow-y-auto">
+                    {selectedFiles.map((file, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-sm"
+                      >
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <span className="truncate max-w-[120px]">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                          className="text-muted-foreground hover:text-destructive ml-1"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <Upload className="h-8 w-8 text-muted-foreground" />
-                  <p className="font-medium">Klik her eller træk en fil hertil</p>
+                  <p className="font-medium">Klik her eller træk filer hertil</p>
                   <p className="text-sm text-muted-foreground">
-                    Understøtter PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG op til 10MB
+                    Vælg én eller flere filer. PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG, WEBP, GIF op til 10MB
                   </p>
                 </div>
               )}
@@ -230,7 +332,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
                 <FormLabel>Beskrivelse (valgfri)</FormLabel>
                 <FormControl>
                   <Input 
-                    placeholder="Kort beskrivelse af dokumentet" 
+                    placeholder="Kort beskrivelse" 
                     {...field} 
                   />
                 </FormControl>
@@ -242,8 +344,7 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Dokumenter skal være i et af følgende formater: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG
-              og må ikke overstige 10MB.
+              Du kan uploade flere billeder på én gang. Opret evt. en mappe først (f.eks. &quot;Billeder af maskine&quot;) og vælg den ved upload.
             </AlertDescription>
           </Alert>
 
@@ -251,8 +352,8 @@ const DocumentUploadForm: React.FC<DocumentUploadFormProps> = ({
             <Button type="button" variant="outline" onClick={onCancel}>
               Annuller
             </Button>
-            <Button type="submit" disabled={isUploading}>
-              {isUploading ? "Uploader..." : "Upload dokument"}
+            <Button type="submit" disabled={isUploading || selectedFiles.length === 0}>
+              {isUploading ? "Uploader..." : `Upload ${selectedFiles.length > 0 ? selectedFiles.length : ''} fil(er)`}
             </Button>
           </div>
         </form>

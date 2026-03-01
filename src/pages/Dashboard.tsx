@@ -235,8 +235,9 @@ const Dashboard = () => {
             </Card>
             
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <TabsList>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="inline-flex w-max min-w-0">
                   <TabsTrigger value="grid" onClick={() => setViewMode('grid')}>
                     <Truck className="h-4 w-4 mr-2" />
                     Grid
@@ -266,15 +267,16 @@ const Dashboard = () => {
                     </TabsTrigger>
                   )}
                 </TabsList>
+                </div>
 
-                <div className="flex items-center space-x-2">
-                  <div className="relative">
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto sm:min-w-[200px]">
+                  <div className="relative w-full">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Søg maskiner..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8"
+                      className="pl-8 w-full min-w-0"
                     />
                   </div>
                 </div>

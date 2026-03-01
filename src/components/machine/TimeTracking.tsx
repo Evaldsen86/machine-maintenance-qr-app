@@ -381,10 +381,10 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
 
         {activeEntry && !isEditing && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
                 <div className="text-sm text-muted-foreground">Startet</div>
-                <div className="font-medium">{formatDateTime(activeEntry.startTime)}</div>
+                <div className="font-medium break-words">{formatDateTime(activeEntry.startTime)}</div>
               </div>
               <Button 
                 onClick={stopTimeEntry}

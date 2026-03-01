@@ -26,6 +26,7 @@ interface MachineDetailTabsProps {
   onTaskComplete: (taskId: string, completedBy: string) => void;
   onTaskUpdate: (task: Task) => void;
   onDocumentAdd: (document: Document) => void;
+  onDocumentsAdd?: (documents: Document[]) => void;
   onDocumentUpdate: (document: Document) => void;
   onOilAdd: (oilData: OilType) => void;
 }
@@ -45,6 +46,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
   onTaskComplete,
   onTaskUpdate,
   onDocumentAdd,
+  onDocumentsAdd,
   onDocumentUpdate,
   onOilAdd
 }) => {
@@ -62,23 +64,23 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
   return (
     <div className="mt-8">
       <Tabs defaultValue="service" className="space-y-8">
-        <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          <TabsTrigger value="service">
-            <Wrench className="h-4 w-4 mr-2" />
-            Service & Vedligeholdelse
+        <TabsList className="flex w-full flex-wrap gap-1 overflow-x-auto">
+          <TabsTrigger value="service" className="flex-1 min-w-0 sm:flex-initial">
+            <Wrench className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
+            <span className="truncate">Service & Vedligeholdelse</span>
           </TabsTrigger>
-          <TabsTrigger value="tasks">
-            <Clock className="h-4 w-4 mr-2" />
+          <TabsTrigger value="tasks" className="flex-1 min-w-0 sm:flex-initial">
+            <Clock className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
             Opgaver
           </TabsTrigger>
           {(isAuthenticated || isPublicAccess) && (
             <>
-              <TabsTrigger value="documents">
-                <FileText className="h-4 w-4 mr-2" />
-                Dokumentation
+              <TabsTrigger value="documents" className="flex-1 min-w-0 sm:flex-initial">
+                <FileText className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Dokumentation</span>
               </TabsTrigger>
-              <TabsTrigger value="oils">
-                <Droplet className="h-4 w-4 mr-2" />
+              <TabsTrigger value="oils" className="flex-1 min-w-0 sm:flex-initial">
+                <Droplet className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
                 Olier
               </TabsTrigger>
             </>
@@ -121,6 +123,7 @@ const MachineDetailTabs: React.FC<MachineDetailTabsProps> = ({
             documents={documents} 
             canUpload={canUploadDocuments()}
             onDocumentAdd={onDocumentAdd}
+            onDocumentsAdd={onDocumentsAdd}
             onDocumentUpdate={onDocumentUpdate}
           />
         </TabsContent>

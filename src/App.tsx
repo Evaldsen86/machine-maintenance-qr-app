@@ -15,6 +15,7 @@ import UserManagement from "./pages/UserManagement";
 import Elearning from "./pages/Elearning";
 import Inventory from "./pages/Inventory";
 import Invoices from "./pages/Invoices";
+import Archive from "./pages/Archive";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 
@@ -114,6 +115,11 @@ const AppRoutes = () => {
       <Route path="/invoices" element={
         <ProtectedRoute>
           <Invoices />
+        </ProtectedRoute>
+      } />
+      <Route path="/arkiv" element={
+        <ProtectedRoute>
+          <Archive />
         </ProtectedRoute>
       } />
       <Route path="/settings" element={

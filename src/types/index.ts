@@ -172,7 +172,7 @@ export interface Document {
   allowedRoles?: UserRole[];
   allowedUsers?: string[];
   url?: string;
-  type?: 'manual' | 'service' | 'certification' | 'other';
+  type?: 'manual' | 'service' | 'certification' | 'other' | 'folder' | 'image';
   description?: string;
   uploadDate?: string;
   accessPermissions?: UserRole[];
@@ -180,6 +180,8 @@ export interface Document {
   downloadRoles?: UserRole[];
   viewUsers?: string[];
   downloadUsers?: string[];
+  /** Id på mappe som dokumentet tilhører. Kun for dokumenter, ikke mapper selv. */
+  folderId?: string;
 }
 
 export interface Model3D {
@@ -356,6 +358,8 @@ export interface OfferPart {
 
 export interface Offer {
   id: string;
+  /** Menneskelæsbart tilbudsnummer f.eks. T-2024-0001 */
+  offerNumber?: string;
   title: string;
   customerName: string;
   amount: number; // total, calculated from items + parts

@@ -17,11 +17,14 @@ import { toast } from "@/components/ui/use-toast";
 import { formatCurrency } from '@/utils/currencyUtils';
 import { Offer, OfferItem, OfferPart, OfferStatus, Task } from '@/types';
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Plus, Truck, Package, FileText, PlayCircle } from 'lucide-react';
+import { Trash2, Edit, Plus, Truck, Package, FileText, PlayCircle, Printer, Download } from 'lucide-react';
 import { useMachines } from '@/hooks/useMachines';
 import { useInventory } from '@/hooks/useInventory';
 import { useInvoices } from '@/hooks/useInvoices';
 import { InvoiceItem } from '@/types';
+import { generateOfferPdf } from '@/utils/offerPdf';
+import { printOffer } from '@/utils/printOfferUtils';
+import { getNextOfferNumber, migrateOffers } from '@/utils/offerUtils';
 
 const storageKey = 'offers';
 
@@ -93,7 +96,7 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as Offer[];
-        setOffers(parsed.map(migrateOffer));
+        setOffers(migrateOffers(parsed));
       } catch {
         setOffers([]);
       }
@@ -252,6 +255,7 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
     } else {
       const newOffer: Offer = {
         id: `offer-${Date.now()}`,
+        offerNumber: getNextOfferNumber(offers),
         title: title.trim(),
         customerName: customerName.trim(),
         amount: total,
@@ -429,9 +433,14 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
           )}
           {sortedOffers.map(offer => (
             <div key={offer.id} className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-1">
-                <div className="font-medium">{offer.title}</div>
-                <div className="text-sm text-muted-foreground">{offer.customerName}</div>
+              <div className="space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium truncate">{offer.title}</span>
+                  {offer.offerNumber && (
+                    <span className="text-xs text-muted-foreground font-mono">{offer.offerNumber}</span>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground truncate">{offer.customerName}</div>
                 {offer.machineName && offer.machineId && (
                   <button
                     type="button"
@@ -455,6 +464,28 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
                 </Badge>
                 <div className="font-semibold">{formatCurrency(offer.amount)}</div>
                 <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateOfferPdf(migrateOffer(offer))}
+                    title="Download PDF"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    PDF
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!printOffer(migrateOffer(offer))) {
+                        toast({ variant: "destructive", title: "Fejl", description: "Kunne ikke åbne udskriftsvindue." });
+                      }
+                    }}
+                    title="Udskriv"
+                  >
+                    <Printer className="h-4 w-4 mr-1" />
+                    Udskriv
+                  </Button>
                   {offer.status === 'accepted' && !offer.taskId && (
                     <Button size="sm" variant="secondary" onClick={() => openCreateProjectDialog(offer)}>
                       <PlayCircle className="h-4 w-4 mr-2" />

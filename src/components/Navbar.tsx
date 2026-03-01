@@ -29,7 +29,8 @@ import {
   FilePlus,
   FileText,
   GraduationCap,
-  Package
+  Package,
+  Archive
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -95,8 +96,8 @@ const Navbar: React.FC = () => {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="container flex h-16 items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden">
@@ -147,19 +148,34 @@ const Navbar: React.FC = () => {
                     </SheetClose>
                   )}
                   {canAccessInvoices(user?.role) && (
-                    <SheetClose asChild>
-                      <Link 
-                        to="/invoices" 
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
-                          isActive('/invoices') 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'hover:bg-secondary'
-                        }`}
-                      >
-                        <FileText className="h-4 w-4" />
-                        Fakturaer
-                      </Link>
-                    </SheetClose>
+                    <>
+                      <SheetClose asChild>
+                        <Link 
+                          to="/invoices" 
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                            isActive('/invoices') 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'hover:bg-secondary'
+                          }`}
+                        >
+                          <FileText className="h-4 w-4" />
+                          Fakturaer
+                        </Link>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Link 
+                          to="/arkiv" 
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                            isActive('/arkiv') 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'hover:bg-secondary'
+                          }`}
+                        >
+                          <Archive className="h-4 w-4" />
+                          Arkiv
+                        </Link>
+                      </SheetClose>
+                    </>
                   )}
                   {(user?.role === 'driver' || user?.role === 'admin' || user?.role === 'mechanic' || user?.role === 'technician') && (
                     <SheetClose asChild>
@@ -210,9 +226,9 @@ const Navbar: React.FC = () => {
               </SheetContent>
             </Sheet>
             
-            <Link to="/" className="flex items-center space-x-2">
-              <img src="/responsive-design_4351724.png" alt="Logo" className="h-8 w-8 object-contain" />
-              <span className="inline-block font-bold">Maskine QR System</span>
+            <Link to="/" className="flex items-center space-x-2 min-w-0 shrink-0">
+              <img src="/responsive-design_4351724.png" alt="Logo" className="h-8 w-8 object-contain shrink-0" />
+              <span className="font-bold truncate hidden sm:inline">Maskine QR System</span>
             </Link>
           </div>
           
@@ -250,17 +266,30 @@ const Navbar: React.FC = () => {
                   </Link>
                 )}
                 {canAccessInvoices(user?.role) && (
-                  <Link 
-                    to="/invoices" 
-                    className={`text-sm font-medium transition-colors hover:text-primary ${
-                      isActive('/invoices') ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1">
-                      <FileText className="h-4 w-4 mr-1" />
-                      Fakturaer
-                    </div>
-                  </Link>
+                  <>
+                    <Link 
+                      to="/invoices" 
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        isActive('/invoices') ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <FileText className="h-4 w-4 mr-1" />
+                        Fakturaer
+                      </div>
+                    </Link>
+                    <Link 
+                      to="/arkiv" 
+                      className={`text-sm font-medium transition-colors hover:text-primary ${
+                        isActive('/arkiv') ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <Archive className="h-4 w-4 mr-1" />
+                        Arkiv
+                      </div>
+                    </Link>
+                  </>
                 )}
                 {user && user.role === 'admin' && (
                   <>
@@ -292,7 +321,7 @@ const Navbar: React.FC = () => {
             )}
           </nav>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

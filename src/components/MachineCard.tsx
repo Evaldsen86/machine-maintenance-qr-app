@@ -90,7 +90,7 @@ const MachineCard: React.FC<MachineCardProps> = ({ machine, onEdit }) => {
         <CardTitle className="flex justify-between items-center">
           <span className="truncate">{machine.name}</span>
         </CardTitle>
-        <CardDescription>{machine.model}</CardDescription>
+        <CardDescription className="truncate">{machine.model}</CardDescription>
       </CardHeader>
       
       <CardContent className="text-sm space-y-2 pb-0">
