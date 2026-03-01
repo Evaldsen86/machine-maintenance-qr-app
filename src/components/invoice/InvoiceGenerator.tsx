@@ -184,7 +184,7 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
           <h3 className="font-medium">Vælg tidsregistreringer</h3>
           <div className="space-y-2">
             {timeEntries
-              .filter(entry => entry.status === 'completed')
+              .filter(entry => entry.status === 'completed' || entry.status === 'approved')
               .map(entry => (
                 <div 
                   key={entry.id}

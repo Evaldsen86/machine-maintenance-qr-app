@@ -58,8 +58,8 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
     setEstimatedHours(task.estimatedHours || 2);
   }, [task]);
 
-  const canEdit = hasPermission('admin') || hasPermission('mechanic') || hasPermission('technician');
-  const canAssign = hasPermission('admin'); // Admin and manager can assign tasks
+  const canEdit = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician');
+  const canAssign = hasPermission('admin') || hasPermission('leader');
   const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin') || hasPermission('blacksmith');
 
   const eligibleUsers = mockUsers.filter(u => 
@@ -171,6 +171,13 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          {/* Hint for offer-based projects */}
+          {currentTask.offerId && (currentTask.status === 'in-progress' || currentTask.status === 'completed' || currentTask.status === 'approved') && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              Projekt fra tilbud. Du kan ændre timer og reservedele under arbejdet – det faktiske beløb bruges i fakturaen.
+            </div>
+          )}
+
           {/* Task Details */}
           <Card>
             <CardHeader>
@@ -303,8 +310,8 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                   </Button>
                 )}
 
-                {/* Assign Task Button - For admin/manager to assign to others */}
-                {canAssign && currentTask.status === 'pending' && (
+                {/* Assign Task Button - For admin/leader to assign to technician */}
+                {canAssign && (currentTask.status === 'pending' || currentTask.status === 'in-progress') && (
                   <Button 
                     onClick={() => setIsEditing(true)} 
                     variant="outline" 

@@ -12,8 +12,18 @@ import {
   LogIn,
   Copy,
   Check,
-  QrCode
+  QrCode,
+  ChevronDown
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/components/ui/use-toast";
+import { printHistory, printFullMachineData, printFullPage } from '@/utils/printHistoryUtils';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Machine } from '@/types';
@@ -26,7 +36,6 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/use-toast";
 import MachineQRSection from './MachineQRSection';
 
 interface MachineInfoCardsProps {
@@ -74,10 +83,63 @@ const MachineInfoCards: React.FC<MachineInfoCardsProps> = ({ machine }) => {
         <CardContent className="space-y-2">
           {isAuthenticated && (
             <>
-              <Button variant="outline" className="w-full justify-start" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" />
-                Udskriv Servicehistorik
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Printer className="mr-2 h-4 w-4" />
+                    Udskriv
+                    <ChevronDown className="ml-auto h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuItem onClick={() => {
+                    const ok = printHistory({
+                      machineName: machine.name,
+                      serviceRecords: machine.serviceHistory || [],
+                      lubricationRecords: machine.lubricationHistory || [],
+                      tasks: machine.tasks || [],
+                      printType: 'service',
+                    });
+                    if (!ok) toast({ variant: "destructive", title: "Fejl", description: "Kunne ikke åbne udskriftsvindue. Tjek pop-up blocker." });
+                  }}>
+                    Servicehistorik (service + smøring)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const ok = printHistory({
+                      machineName: machine.name,
+                      serviceRecords: machine.serviceHistory || [],
+                      lubricationRecords: machine.lubricationHistory || [],
+                      tasks: machine.tasks || [],
+                      printType: 'tasks',
+                    });
+                    if (!ok) toast({ variant: "destructive", title: "Fejl", description: "Kunne ikke åbne udskriftsvindue. Tjek pop-up blocker." });
+                  }}>
+                    Opgavehistorik (udførte opgaver)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const ok = printHistory({
+                      machineName: machine.name,
+                      serviceRecords: machine.serviceHistory || [],
+                      lubricationRecords: machine.lubricationHistory || [],
+                      tasks: machine.tasks || [],
+                      printType: 'combined',
+                    });
+                    if (!ok) toast({ variant: "destructive", title: "Fejl", description: "Kunne ikke åbne udskriftsvindue. Tjek pop-up blocker." });
+                  }}>
+                    Samlet (service + opgaver)
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => {
+                    const ok = printFullMachineData(machine);
+                    if (!ok) toast({ variant: "destructive", title: "Fejl", description: "Kunne ikke åbne udskriftsvindue. Tjek pop-up blocker." });
+                  }}>
+                    Hele maskindata
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => printFullPage()}>
+                    Hele siden
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button 
                 variant="outline" 
                 className="w-full justify-start"

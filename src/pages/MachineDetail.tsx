@@ -676,7 +676,7 @@ const MachineDetail = () => {
         />
         
         {/* Check if TimeTracking should be shown */}
-        {user && ['mechanic','technician','blacksmith','driver','admin','leader'].includes(user.role) ? (
+        {user && ['mechanic','technician','blacksmith','driver','admin','leader','lagermand'].includes(user.role) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <TimeTracking
               machineId={machineState?.id || ''}

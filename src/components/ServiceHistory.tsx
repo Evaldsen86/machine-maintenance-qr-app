@@ -8,11 +8,19 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ServiceRecord, LubricationRecord, Task, EquipmentType } from '@/types';
+import { ServiceRecord, LubricationRecord, Task, EquipmentType, Machine } from '@/types';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
-import { Printer } from 'lucide-react';
+import { Printer, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { printHistory, printFullMachineData, printFullPage, PrintHistoryType } from '@/utils/printHistoryUtils';
 
 import ServiceRecordsList from './service/ServiceRecordsList';
 import LubricationRecordsList from './service/LubricationRecordsList';
@@ -25,6 +33,8 @@ interface ServiceHistoryProps {
   lubricationRecords: LubricationRecord[];
   tasks: Task[];
   machineId: string;
+  machineName?: string;
+  machine?: Machine;
   onServiceSubmit?: (data: { equipmentType: string; description: string; issues?: string }) => void;
   onLubricationSubmit?: (data: { equipmentType: EquipmentType; notes: string; date: string; performedBy: string }) => void;
   onTaskSubmit?: (data: Task) => void;
@@ -37,6 +47,8 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
   lubricationRecords, 
   tasks,
   machineId,
+  machineName = 'Maskine',
+  machine,
   onServiceSubmit,
   onLubricationSubmit,
   onTaskSubmit,
@@ -60,90 +72,21 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
     new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
   );
 
-  const handlePrint = () => {
-    // Create a new window with only the service history
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
+  const handlePrint = (printType: PrintHistoryType) => {
+    const ok = printHistory({
+      machineName,
+      serviceRecords: sortedServiceRecords,
+      lubricationRecords: sortedLubricationRecords,
+      tasks: sortedTasks,
+      printType,
+    });
+    if (!ok) {
       toast({
         variant: "destructive",
         title: "Fejl ved udskrift",
         description: "Kunne ikke åbne udskriftsvindue. Tjek om pop-up blocker er aktiveret.",
       });
-      return;
     }
-
-    // Function to get equipment type name in Danish
-    const getEquipmentTypeName = (type: string): string => {
-      switch (type) {
-        case 'truck': return 'Lastbil';
-        case 'crane': return 'Kran';
-        case 'winch': return 'Spil';
-        case 'hooklift': return 'Kroghejs';
-        default: return type;
-      }
-    };
-
-    // Generate HTML content for printing
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Service Historik</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #333; }
-            .record { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
-            .record-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-            .record-type { font-weight: bold; color: #555; }
-            .record-date { color: #777; }
-            .record-description { margin-bottom: 8px; }
-            .record-issues { background-color: #fff4f4; padding: 8px; border-radius: 4px; color: #e11d48; }
-            .record-performer { font-size: 0.9em; color: #777; margin-top: 8px; }
-            .print-button { display: none; }
-            @media print {
-              body { padding: 0; }
-              h1 { margin-top: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Service Historik</h1>
-          ${sortedServiceRecords.map(record => `
-            <div class="record">
-              <div class="record-header">
-                <span class="record-type">${getEquipmentTypeName(record.equipmentType)}</span>
-                <span class="record-date">${new Date(record.date).toLocaleDateString('da-DK')}</span>
-              </div>
-              <div class="record-description">${record.description}</div>
-              ${record.issues ? `<div class="record-issues">Problem: ${record.issues}</div>` : ''}
-              <div class="record-performer">Udført af: ${record.performedBy}</div>
-            </div>
-          `).join('')}
-          
-          <h1>Smøring Historik</h1>
-          ${sortedLubricationRecords.map(record => `
-            <div class="record">
-              <div class="record-header">
-                <span class="record-type">${getEquipmentTypeName(record.equipmentType)}</span>
-                <span class="record-date">${new Date(record.date).toLocaleDateString('da-DK')}</span>
-              </div>
-              ${record.notes ? `<div class="record-description">${record.notes}</div>` : ''}
-              <div class="record-performer">Udført af: ${record.performedBy}</div>
-            </div>
-          `).join('')}
-          
-          <button class="print-button" onclick="window.print()">Udskriv</button>
-        </body>
-      </html>
-    `);
-    
-    // Close the document to finish writing
-    printWindow.document.close();
-    
-    // Focus the new window and print after a small delay to ensure content is loaded
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
   };
   
   const handleTaskCompleteWrapper = (taskId: string, completedBy: string) => {
@@ -177,15 +120,38 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
             Overblik over servicehistorik, smøring og planlagte opgaver
           </CardDescription>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 gap-1"
-          onClick={handlePrint}
-        >
-          <Printer className="h-4 w-4" />
-          <span>Udskriv</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 gap-1">
+              <Printer className="h-4 w-4" />
+              <span>Udskriv</span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handlePrint('service')}>
+              Servicehistorik (service + smøring)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handlePrint('tasks')}>
+              Opgavehistorik (udførte opgaver)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handlePrint('combined')}>
+              Samlet (service + opgaver)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {machine && (
+              <DropdownMenuItem onClick={() => {
+                const ok = printFullMachineData(machine);
+                if (!ok) toast({ variant: "destructive", title: "Fejl ved udskrift", description: "Kunne ikke åbne udskriftsvindue. Tjek pop-up blocker." });
+              }}>
+                Hele maskindata
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => printFullPage()}>
+              Hele siden
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="service" className="space-y-4" onValueChange={setActiveTab} value={activeTab}>

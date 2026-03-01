@@ -45,7 +45,7 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   
-  const { machines, updateTask, addMachine, deleteMachine } = useMachines();
+  const { machines, updateTask, addTask, addMachine, deleteMachine } = useMachines();
   
   const [showAddMachineDialog, setShowAddMachineDialog] = useState(false);
   const [machineToDelete, setMachineToDelete] = useState<Machine | null>(null);
@@ -309,7 +309,7 @@ const Dashboard = () => {
 
               {hasPermission('leader') && (
                 <TabsContent value="offers" className="space-y-4">
-                  <OfferPanel />
+                  <OfferPanel addTask={addTask} />
                 </TabsContent>
               )}
 

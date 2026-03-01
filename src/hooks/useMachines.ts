@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Machine } from '@/types';
+import { Machine, Task } from '@/types';
 import { mockMachines } from '@/data/mockData';
 import { toast } from "@/components/ui/use-toast";
 
@@ -58,6 +58,22 @@ export const useMachines = () => {
     });
   }, [saveMachines]);
 
+  const addTask = useCallback((machineId: string, task: Task) => {
+    setMachines(prevMachines => {
+      const updatedMachines = prevMachines.map(machine => {
+        if (machine.id === machineId) {
+          return {
+            ...machine,
+            tasks: [task, ...(machine.tasks || [])]
+          };
+        }
+        return machine;
+      });
+      saveMachines(updatedMachines);
+      return updatedMachines;
+    });
+  }, [saveMachines]);
+
   const addMachine = useCallback((newMachine: Machine) => {
     setMachines(prevMachines => {
       const updatedMachines = [newMachine, ...prevMachines];
@@ -91,6 +107,7 @@ export const useMachines = () => {
     setMachines,
     updateMachine,
     updateTask,
+    addTask,
     addMachine,
     deleteMachine,
     getMachine,

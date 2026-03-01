@@ -315,13 +315,13 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
   };
 
   const totalTime = timeEntries
-    .filter(entry => entry.status === 'completed')
+    .filter(entry => entry.status === 'completed' || entry.status === 'approved')
     .reduce((sum, entry) => sum + (entry.duration || 0), 0);
 
   const actualCost = (totalTime / 60) * hourlyRate;
 
   const previewVatRate = 25;
-  const completedEntries = timeEntries.filter(entry => entry.status === 'completed');
+  const completedEntries = timeEntries.filter(entry => entry.status === 'completed' || entry.status === 'approved');
   const previewItems = completedEntries.flatMap(entry => {
     const items: Part[] = entry.partsUsed || [];
     const invoiceItems: InvoiceItem[] = [];
@@ -614,7 +614,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
             </div>
 
             <InvoiceGenerator
-              timeEntries={timeEntries.filter(entry => entry.status === 'completed')}
+              timeEntries={timeEntries.filter(entry => entry.status === 'completed' || entry.status === 'approved')}
               customerId={task.customerId || 'default'}
               customerName={customerName || 'Kunde'}
               onInvoiceGenerated={generateInvoice}

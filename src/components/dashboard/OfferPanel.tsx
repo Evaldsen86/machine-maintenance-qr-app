@@ -15,9 +15,9 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { formatCurrency } from '@/utils/currencyUtils';
-import { Offer, OfferItem, OfferPart, OfferStatus } from '@/types';
+import { Offer, OfferItem, OfferPart, OfferStatus, Task } from '@/types';
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Plus, Truck, Package, FileText } from 'lucide-react';
+import { Trash2, Edit, Plus, Truck, Package, FileText, PlayCircle } from 'lucide-react';
 import { useMachines } from '@/hooks/useMachines';
 import { useInventory } from '@/hooks/useInventory';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -63,9 +63,14 @@ const migrateOffer = (offer: Offer): Offer => {
   return migrated;
 };
 
-const OfferPanel: React.FC = () => {
+interface OfferPanelProps {
+  addTask?: (machineId: string, task: Task) => void;
+}
+
+const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
   const navigate = useNavigate();
-  const { machines } = useMachines();
+  const { machines, addTask: addTaskFromHook } = useMachines();
+  const addTask = addTaskProp ?? addTaskFromHook;
   const { parts: inventoryParts, decreaseQuantity } = useInventory();
   const { addInvoice, invoices } = useInvoices();
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -79,6 +84,9 @@ const OfferPanel: React.FC = () => {
   const [parts, setParts] = useState<OfferPart[]>([]);
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateProjectDialog, setShowCreateProjectDialog] = useState(false);
+  const [offerToConvert, setOfferToConvert] = useState<Offer | null>(null);
+  const [selectedMachineForProject, setSelectedMachineForProject] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
@@ -282,6 +290,58 @@ const OfferPanel: React.FC = () => {
     toast({ title: "Tilbud slettet", description: "Tilbuddet er blevet fjernet." });
   };
 
+  const openCreateProjectDialog = (offer: Offer) => {
+    const migrated = migrateOffer(offer);
+    if (migrated.machineId && machines.some(m => m.id === migrated.machineId)) {
+      createProjectFromOffer(migrated, migrated.machineId);
+      return;
+    }
+    setOfferToConvert(migrated);
+    setShowCreateProjectDialog(true);
+  };
+
+  const createProjectFromOffer = (offerOrNull: Offer | null, selectedMachineId: string) => {
+    const source = offerOrNull ?? offerToConvert;
+    if (!source) return;
+    const offer = migrateOffer(source);
+    const machine = machines.find(m => m.id === selectedMachineId);
+    if (!machine) {
+      toast({ variant: "destructive", title: "Fejl", description: "Vælg en maskine." });
+      return;
+    }
+
+    const itemsTotal = totalFromItems(offer.items || []);
+    const partsTotal = totalFromParts(offer.parts || []);
+    const totalAmount = itemsTotal + partsTotal;
+    const hourlyRate = 750;
+    const estimatedHours = itemsTotal > 0 ? Math.max(1, Math.round(totalAmount / hourlyRate)) : 2;
+
+    const newTask: Task = {
+      id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      title: offer.title,
+      description: offer.notes || `Projekt fra tilbud til ${offer.customerName}`,
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'pending',
+      equipmentType: (machine.equipment?.[0]?.type as Task['equipmentType']) || 'truck',
+      customerName: offer.customerName,
+      hourlyRate,
+      estimatedHours,
+      offerId: offer.id,
+    };
+
+    addTask(machine.id, newTask);
+    setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, taskId: newTask.id } : o));
+    setShowCreateProjectDialog(false);
+    setOfferToConvert(null);
+    setSelectedMachineForProject('');
+
+    toast({
+      title: "Projekt oprettet",
+      description: `Tilbuddet er nu et igangværende projekt. Du kan tildele det til en tekniker under Opgaver.`,
+    });
+    navigate('/dashboard?tab=tasks');
+  };
+
   const canEditOffer = (offer: Offer) => offer.status === 'draft' || offer.status === 'sent';
 
   const customerSuggestions = useMemo(() => {
@@ -395,6 +455,18 @@ const OfferPanel: React.FC = () => {
                 </Badge>
                 <div className="font-semibold">{formatCurrency(offer.amount)}</div>
                 <div className="flex flex-wrap gap-2">
+                  {offer.status === 'accepted' && !offer.taskId && (
+                    <Button size="sm" variant="secondary" onClick={() => openCreateProjectDialog(offer)}>
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Opret projekt
+                    </Button>
+                  )}
+                  {offer.status === 'accepted' && offer.taskId && (
+                    <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tasks')}>
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Se projekt
+                    </Button>
+                  )}
                   {offer.status === 'accepted' && !offer.invoiceId && (
                     <Button size="sm" onClick={() => createInvoiceFromOffer(offer)}>
                       <FileText className="h-4 w-4 mr-2" />
@@ -641,6 +713,59 @@ const OfferPanel: React.FC = () => {
               {editingOffer ? 'Gem ændringer' : 'Opret tilbud'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCreateProjectDialog} onOpenChange={(open) => !open && (setShowCreateProjectDialog(false), setOfferToConvert(null), setSelectedMachineForProject(''))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Opret projekt fra tilbud</DialogTitle>
+            <DialogDescription>
+              Projektet vises under Opgaver, hvor du kan tildele en tekniker og justere timer/reservedele hvis det grove estimat afviger fra det faktiske.
+            </DialogDescription>
+          </DialogHeader>
+          {offerToConvert && (
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3 bg-muted/50">
+                <div className="font-medium">{offerToConvert.title}</div>
+                <div className="text-sm text-muted-foreground">{offerToConvert.customerName}</div>
+              </div>
+              {!offerToConvert.machineId ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Vælg maskine</label>
+                    <Select value={selectedMachineForProject} onValueChange={setSelectedMachineForProject}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vælg maskine til projekt" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {machines.map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => { setShowCreateProjectDialog(false); setOfferToConvert(null); setSelectedMachineForProject(''); }}>
+                      Annuller
+                    </Button>
+                    <Button onClick={() => selectedMachineForProject && createProjectFromOffer(null, selectedMachineForProject)} disabled={!selectedMachineForProject}>
+                      Opret projekt
+                    </Button>
+                  </DialogFooter>
+                </>
+              ) : (
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setShowCreateProjectDialog(false); setOfferToConvert(null); }}>
+                    Annuller
+                  </Button>
+                  <Button onClick={() => createProjectFromOffer(null, offerToConvert.machineId)}>
+                    Opret projekt
+                  </Button>
+                </DialogFooter>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -109,6 +109,8 @@ export interface Task {
   customerId?: string;
   customerName?: string;
   invoiceId?: string;
+  /** Link til tilbud når opgaven er oprettet fra et accepteret tilbud */
+  offerId?: string;
 }
 
 export interface ServiceRecord {
@@ -367,6 +369,8 @@ export interface Offer {
   items: OfferItem[];
   parts?: OfferPart[];
   invoiceId?: string;
+  /** Link til igangværende projekt/opgave når tilbud er accepteret */
+  taskId?: string;
 }
 
 export interface InventoryPart {

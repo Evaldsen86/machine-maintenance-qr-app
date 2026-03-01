@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { TimeEntry, EquipmentType, Part } from '@/types';
 import { formatDateTime, formatDuration } from '@/utils/dateUtils';
-import { Play, Square, Edit, Trash2, Check, X } from 'lucide-react';
+import { Play, Square, Edit, Trash2, Check, X, CheckCircle, XCircle } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import PartsManager from './PartsManager';
@@ -146,7 +146,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     let updatedEndTime = activeEntry.endTime;
     let updatedDuration = activeEntry.duration;
 
-    if (canEditHours) {
+    if (canEditHoursForEntry(activeEntry)) {
       const parsedStart = toISOFromLocal(editStartDate, editStartClock);
       const parsedEnd = editEndDate || editEndClock ? toISOFromLocal(editEndDate, editEndClock) : undefined;
 
@@ -250,6 +250,54 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     });
   };
 
+  const approveTimeEntry = (entry: TimeEntry) => {
+    if (!user) return;
+    const updated: TimeEntry = {
+      ...entry,
+      status: 'approved',
+      approvedBy: user.name,
+      approvedAt: new Date().toISOString(),
+    };
+    setTimeEntries(prev => prev.map(e => e.id === entry.id ? updated : e));
+    saveTimeEntries(timeEntries.map(e => e.id === entry.id ? updated : e));
+    if (onTimeEntryUpdate) onTimeEntryUpdate(updated);
+    toast({ title: "Tid godkendt", description: "Tidsregistreringen er godkendt." });
+  };
+
+  const rejectTimeEntry = (entry: TimeEntry) => {
+    if (!user) return;
+    const updated: TimeEntry = {
+      ...entry,
+      status: 'rejected',
+      approvedBy: user.name,
+      approvedAt: new Date().toISOString(),
+    };
+    setTimeEntries(prev => prev.map(e => e.id === entry.id ? updated : e));
+    saveTimeEntries(timeEntries.map(e => e.id === entry.id ? updated : e));
+    if (onTimeEntryUpdate) onTimeEntryUpdate(updated);
+    toast({ title: "Tid afvist", description: "Tidsregistreringen er afvist." });
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'active': return 'I gang';
+      case 'completed': return 'Afventer godkendelse';
+      case 'approved': return 'Godkendt';
+      case 'rejected': return 'Afvist';
+      default: return status;
+    }
+  };
+
+  const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    switch (status) {
+      case 'active': return 'secondary';
+      case 'completed': return 'outline';
+      case 'approved': return 'default';
+      case 'rejected': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
   const saveTimeEntries = (entries: TimeEntry[]) => {
     try {
       localStorage.setItem(`time_entries_${machineId}`, JSON.stringify(entries));
@@ -263,8 +311,24 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     }
   };
 
-  const canEditTime = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician');
-  const canEditHours = hasPermission('leader');
+  const isLeaderOrAdmin = hasPermission('admin') || hasPermission('leader');
+  const canStartTime = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician') || hasPermission('blacksmith') || hasPermission('driver') || hasPermission('lagermand');
+
+  const canEditEntry = (entry: TimeEntry) => {
+    if (!user) return false;
+    if (isLeaderOrAdmin) return true;
+    return entry.userId === user.id || entry.userName === user.name;
+  };
+
+  const canEditHoursForEntry = (entry: TimeEntry) => {
+    if (!user) return false;
+    if (isLeaderOrAdmin) return true;
+    return entry.userId === user.id || entry.userName === user.name;
+  };
+
+  const canApproveEntry = (entry: TimeEntry) => {
+    return isLeaderOrAdmin && entry.status === 'completed';
+  };
 
   const toLocalDateValue = (isoString: string) => {
     const date = new Date(isoString);
@@ -298,7 +362,8 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       <CardHeader>
         <CardTitle>Tidsregistrering</CardTitle>
         <CardDescription>
-          Registrer arbejdstid på {equipmentType === 'crane' ? 'kran' : equipmentType === 'winch' ? 'spil' : 'lastbil'}
+          Registrer arbejdstid på {equipmentType === 'crane' ? 'kran' : equipmentType === 'winch' ? 'spil' : 'lastbil'}. 
+          Medarbejdere kan rette egne timer; leder og administrator kan rette og godkende alle.
         </CardDescription>
       </CardHeader>
       
@@ -307,7 +372,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
           <Button 
             onClick={startTimeEntry}
             className="w-full"
-            disabled={!canEditTime}
+            disabled={!canStartTime}
           >
             <Play className="h-4 w-4 mr-2" />
             Start tid
@@ -359,7 +424,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
 
         {isEditing && activeEntry && (
           <div className="space-y-4">
-            {canEditHours && (
+            {canEditHoursForEntry(activeEntry) && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Starttid</label>
@@ -445,48 +510,88 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
 
         {timeEntries.length > 0 && (
           <div className="space-y-4">
-            <h3 className="font-medium">Tidligere registreringer</h3>
+            <h3 className="font-medium">Tidsregistreringer</h3>
             <div className="space-y-2">
               {timeEntries
                 .filter(entry => entry.status !== 'active')
                 .map(entry => (
                   <div 
                     key={entry.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
+                    className="flex flex-col gap-3 p-3 border rounded-lg"
                   >
-                    <div>
-                      <div className="font-medium">
-                        {formatDateTime(entry.startTime)}
-                        {entry.endTime && ` - ${formatDateTime(entry.endTime)}`}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {entry.duration && formatDuration(entry.duration)}
-                      </div>
-                      <div className="text-sm mt-1">{entry.description}</div>
-                      {entry.partsUsed && entry.partsUsed.length > 0 && (
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {entry.partsUsed.length} reservedel{entry.partsUsed.length !== 1 ? 'er' : ''} brugt
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="font-medium">
+                            {formatDateTime(entry.startTime)}
+                            {entry.endTime && ` – ${formatDateTime(entry.endTime)}`}
+                          </span>
+                          <Badge variant={getStatusVariant(entry.status)} className="text-xs">
+                            {getStatusLabel(entry.status)}
+                          </Badge>
                         </div>
-                      )}
-                    </div>
-                    {canEditTime && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => editTimeEntry(entry)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteTimeEntry(entry.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="text-sm text-muted-foreground">
+                          {entry.duration != null && formatDuration(entry.duration)}
+                          {entry.userName && ` · ${entry.userName}`}
+                        </div>
+                        {entry.description && (
+                          <div className="text-sm mt-1">{entry.description}</div>
+                        )}
+                        {entry.partsUsed && entry.partsUsed.length > 0 && (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {entry.partsUsed.length} reservedel{entry.partsUsed.length !== 1 ? 'er' : ''} brugt
+                          </div>
+                        )}
+                        {entry.approvedBy && (entry.status === 'approved' || entry.status === 'rejected') && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {entry.status === 'approved' ? 'Godkendt' : 'Afvist'} af {entry.approvedBy}
+                            {entry.approvedAt && ` ${new Date(entry.approvedAt).toLocaleDateString('da-DK')}`}
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div className="flex gap-1 flex-shrink-0">
+                        {canApproveEntry(entry) && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => approveTimeEntry(entry)}
+                              title="Godkend"
+                            >
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => rejectTimeEntry(entry)}
+                              title="Afvis"
+                            >
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </>
+                        )}
+                        {canEditEntry(entry) && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => editTimeEntry(entry)}
+                              title="Rediger"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteTimeEntry(entry.id)}
+                              title="Slet"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
             </div>
