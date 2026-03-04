@@ -67,9 +67,9 @@ const TaskOverview: React.FC<TaskOverviewProps> = ({ machines, onTaskUpdate }) =
     }))
   );
 
-  // Filter only pending and in-progress tasks
+  // Filter active tasks: awaiting-parts, ready-for-repair, pending, in-progress
   const activeTasks = allTasks.filter(task => 
-    task.status === 'pending' || task.status === 'in-progress'
+    ['awaiting-parts', 'ready-for-repair', 'pending', 'in-progress'].includes(task.status)
   );
 
   // Group tasks by machine

@@ -241,6 +241,32 @@ export const mockTasks: Task[] = [
     estimatedHours: 1.5,
     customerName: 'Aarhus Havn A/S',
   },
+  {
+    id: 'task-awaiting-1',
+    title: 'Udskift hydraulikpumpe',
+    description: 'Afventer ny hydraulikpumpe fra leverandør',
+    dueDate: '2023-11-05',
+    status: 'awaiting-parts',
+    priority: 'high',
+    assignedTo: '4',
+    equipmentType: 'crane',
+    hourlyRate: 850,
+    estimatedHours: 8,
+    customerName: 'Aarhus Havn A/S',
+  },
+  {
+    id: 'task-ready-1',
+    title: 'Bremsejustering',
+    description: 'Reservedele modtaget – klar til reparation',
+    dueDate: '2023-10-18',
+    status: 'ready-for-repair',
+    priority: 'critical',
+    assignedTo: undefined,
+    equipmentType: 'truck',
+    hourlyRate: 750,
+    estimatedHours: 3,
+    customerName: 'Aarhus Havn A/S',
+  },
 ];
 
 export const mockDocuments: Document[] = [

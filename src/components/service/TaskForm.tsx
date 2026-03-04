@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, ClipboardList } from "lucide-react";
-import { EquipmentType, Task } from '@/types';
+import { EquipmentType, Task, TaskPriority } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { da } from 'date-fns/locale';
@@ -39,6 +39,8 @@ const taskFormSchema = z.object({
     required_error: "Vælg venligst en deadline.",
   }),
   assignedTo: z.string().optional(),
+  status: z.enum(["awaiting-parts", "ready-for-repair", "pending"] as const).optional(),
+  priority: z.enum(["low", "medium", "high", "critical"] as const).optional(),
 });
 
 export type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -63,21 +65,21 @@ const TaskForm: React.FC<TaskFormProps> = ({
       description: "",
       equipmentType: "truck",
       assignedTo: user?.name || "",
+      status: "ready-for-repair",
+      priority: "medium",
     },
   });
 
   const handleSubmit = (values: TaskFormValues) => {
-    // Create a unique ID
     const id = `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    
-    // Create the new task object
     const newTask: Task = {
       id,
       title: values.title,
       description: values.description,
       equipmentType: values.equipmentType,
       dueDate: values.dueDate.toISOString(),
-      status: 'pending',
+      status: values.status || 'ready-for-repair',
+      priority: (values.priority as TaskPriority) || 'medium',
       assignedTo: values.assignedTo || undefined,
     };
     
@@ -91,6 +93,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
       equipmentType: "truck",
       dueDate: undefined,
       assignedTo: user?.name || "",
+      status: "ready-for-repair",
+      priority: "medium",
     });
     
     // Show success toast
@@ -223,6 +227,60 @@ const TaskForm: React.FC<TaskFormProps> = ({
                       />
                     </PopoverContent>
                   </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vælg status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="awaiting-parts">Afventer reservedele</SelectItem>
+                      <SelectItem value="ready-for-repair">Klar til reparation</SelectItem>
+                      <SelectItem value="pending">Afventer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prioritet</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Vælg prioritet" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Lav</SelectItem>
+                      <SelectItem value="medium">Mellem</SelectItem>
+                      <SelectItem value="high">Høj</SelectItem>
+                      <SelectItem value="critical">Kritisk</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

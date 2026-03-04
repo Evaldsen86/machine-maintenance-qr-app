@@ -9,7 +9,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon, Clock, CalendarDays, FileText } from 'lucide-react';
+import { Plus, QrCode, Search, Truck, Users, MapPin, Trash, QrCodeIcon, Clock, CalendarDays, FileText, LayoutDashboard } from 'lucide-react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -27,11 +27,15 @@ import MachineAddForm from '@/components/machine/MachineAddForm';
 import { BatchQRGenerator } from '@/components/machine/BatchQRGenerator';
 import TaskOverview from '@/components/dashboard/TaskOverview';
 import TaskCalendar from '@/components/dashboard/TaskCalendar';
+import TechnicianTaskList from '@/components/dashboard/TechnicianTaskList';
+import ManagerOverview from '@/components/dashboard/ManagerOverview';
+import TaskDialog from '@/components/dashboard/TaskDialog';
 import OfferPanel from '@/components/dashboard/OfferPanel';
 import { useAuth } from '@/hooks/useAuth';
 import { useMachines } from '@/hooks/useMachines';
 import QRScanner from '@/components/QRScanner';
-import { Machine } from '@/types';
+import { Machine, Task } from '@/types';
+import { mockUsers } from '@/data/mockData';
 import { toast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
@@ -49,12 +53,48 @@ const Dashboard = () => {
   
   const [showAddMachineDialog, setShowAddMachineDialog] = useState(false);
   const [machineToDelete, setMachineToDelete] = useState<Machine | null>(null);
+  const [taskViewMode, setTaskViewMode] = useState<'machine' | 'technician'>('machine');
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<string | null>(() => {
+    const tech = searchParams.get('technician');
+    return tech || null;
+  });
+  const [dashboardTask, setDashboardTask] = useState<Task | null>(null);
+  const [dashboardMachine, setDashboardMachine] = useState<Machine | null>(null);
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+
+  const technicians = React.useMemo(() => {
+    const stored = localStorage.getItem('users');
+    try {
+      const users = stored ? JSON.parse(stored) : mockUsers;
+      return users.filter((u: { role: string }) => ['technician', 'mechanic', 'blacksmith', 'admin'].includes(u.role));
+    } catch {
+      return mockUsers.filter(u => ['technician', 'mechanic', 'blacksmith', 'admin'].includes(u.role));
+    }
+  }, []);
 
   useEffect(() => {
-    if (tabFromUrl && ['grid', 'map', 'tasks', 'calendar', 'offers', 'qr'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['grid', 'map', 'tasks', 'calendar', 'offers', 'qr', 'leader'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    const tech = searchParams.get('technician');
+    if (tech) setSelectedTechnicianId(tech);
+  }, [searchParams]);
+
+  const handleTaskClick = (task: Task, machine: Machine) => {
+    setDashboardTask(task);
+    setDashboardMachine(machine);
+    setShowTaskDialog(true);
+  };
+
+  const handleTaskUpdateFromDialog = (updatedTask: Task) => {
+    if (dashboardMachine) {
+      updateTask(dashboardMachine.id, updatedTask.id, updatedTask);
+      setDashboardTask(updatedTask);
+    }
+  };
   
   const filteredMachines = machines.filter(machine => 
     machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -254,6 +294,12 @@ const Dashboard = () => {
                     <CalendarDays className="h-4 w-4 mr-2" />
                     Kalender
                   </TabsTrigger>
+                  {(hasPermission('leader') || hasPermission('admin')) && (
+                    <TabsTrigger value="leader">
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Leder
+                    </TabsTrigger>
+                  )}
                   {hasPermission('leader') && (
                     <TabsTrigger value="offers">
                       <FileText className="h-4 w-4 mr-2" />
@@ -297,17 +343,53 @@ const Dashboard = () => {
               </TabsContent>
 
               <TabsContent value="tasks" className="space-y-4">
-                <TaskOverview 
-                  machines={machines} 
-                  onTaskUpdate={(updatedTask, machineId) => {
-                    updateTask(machineId, updatedTask.id, updatedTask);
-                  }}
-                />
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant={taskViewMode === 'machine' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTaskViewMode('machine')}
+                  >
+                    Efter maskine
+                  </Button>
+                  <Button
+                    variant={taskViewMode === 'technician' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTaskViewMode('technician')}
+                  >
+                    Efter tekniker
+                  </Button>
+                </div>
+                {taskViewMode === 'machine' ? (
+                  <TaskOverview 
+                    machines={machines} 
+                    onTaskUpdate={(updatedTask, machineId) => {
+                      updateTask(machineId, updatedTask.id, updatedTask);
+                    }}
+                  />
+                ) : (
+                  <TechnicianTaskList
+                    machines={machines}
+                    technicians={technicians}
+                    selectedTechnicianId={selectedTechnicianId}
+                    onTechnicianSelect={setSelectedTechnicianId}
+                    onTaskClick={handleTaskClick}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="calendar" className="space-y-4">
-                <TaskCalendar machines={machines} />
+                <TaskCalendar machines={machines} onTaskClick={handleTaskClick} />
               </TabsContent>
+
+              {(hasPermission('leader') || hasPermission('admin')) && (
+                <TabsContent value="leader" className="space-y-4">
+                  <ManagerOverview
+                    machines={machines}
+                    technicians={technicians}
+                    onTaskClick={handleTaskClick}
+                  />
+                </TabsContent>
+              )}
 
               {hasPermission('leader') && (
                 <TabsContent value="offers" className="space-y-4">
@@ -354,6 +436,22 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {dashboardTask && dashboardMachine && (
+        <TaskDialog
+          task={dashboardTask}
+          machine={dashboardMachine}
+          isOpen={showTaskDialog}
+          onClose={() => {
+            setShowTaskDialog(false);
+            setDashboardTask(null);
+            setDashboardMachine(null);
+          }}
+          onTaskUpdate={(updatedTask) => {
+            handleTaskUpdateFromDialog(updatedTask);
+          }}
+        />
+      )}
     </div>
   );
 };

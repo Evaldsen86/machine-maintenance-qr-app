@@ -24,9 +24,11 @@ export function printFullMachineData(machine: Machine): boolean {
 
   const getTaskStatusName = (status: string): string => {
     switch (status) {
+      case 'awaiting-parts': return 'Afventer reservedele';
+      case 'ready-for-repair': return 'Klar til reparation';
       case 'pending': return 'Afventer';
       case 'in-progress': return 'I gang';
-      case 'completed': return 'Afsluttet';
+      case 'completed': return 'Færdig';
       case 'approved': return 'Godkendt';
       case 'invoiced': return 'Faktureret';
       case 'canceled': return 'Annulleret';
@@ -120,9 +122,11 @@ const getEquipmentTypeName = (type: string): string => {
 
 const getTaskStatusName = (status: string): string => {
   switch (status) {
+    case 'awaiting-parts': return 'Afventer reservedele';
+    case 'ready-for-repair': return 'Klar til reparation';
     case 'pending': return 'Afventer';
     case 'in-progress': return 'I gang';
-    case 'completed': return 'Afsluttet';
+    case 'completed': return 'Færdig';
     case 'approved': return 'Godkendt';
     case 'invoiced': return 'Faktureret';
     case 'canceled': return 'Annulleret';

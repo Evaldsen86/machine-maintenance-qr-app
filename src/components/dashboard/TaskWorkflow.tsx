@@ -133,7 +133,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
     setPartsUsed([]);
 
     // Update task status to in-progress if not already
-    if (task.status === 'pending') {
+    if (task.status === 'pending' || task.status === 'ready-for-repair') {
       const updatedTask: Task = {
         ...task,
         status: 'in-progress'
@@ -514,8 +514,8 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {/* Take Task Button - Show if not assigned to anyone or not assigned to me */}
-          {task.status === 'pending' && canTakeTask && !isAssignedToMe && (
+          {/* Take Task Button - Show for ready-for-repair and pending */}
+          {(task.status === 'ready-for-repair' || task.status === 'pending') && canTakeTask && !isAssignedToMe && (
             <Button onClick={handleAssignToMe} className="flex-1">
               <Users className="h-4 w-4 mr-2" />
               Tag ansvar for opgaven
@@ -523,7 +523,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           )}
 
           {/* Start Work Button - Allow multiple people to work on same task */}
-          {task.status === 'pending' && canTakeTask && (isAssignedToMe || !task.assignedTo || canApprove) && !isWorking && (
+          {(task.status === 'ready-for-repair' || task.status === 'pending') && canTakeTask && (isAssignedToMe || !task.assignedTo || canApprove) && !isWorking && (
             <Button onClick={startWorking} className="flex-1">
               <Play className="h-4 w-4 mr-2" />
               Start arbejde

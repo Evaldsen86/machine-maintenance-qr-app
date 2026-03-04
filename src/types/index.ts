@@ -89,7 +89,15 @@ export type EquipmentType = 'truck' | 'crane' | 'winch' | 'hooklift';
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'canceled' | 'approved' | 'invoiced';
+export type TaskStatus = 
+  | 'awaiting-parts'   // Afventer reservedele - skjult for teknikere indtil klar
+  | 'ready-for-repair' // Klar til reparation - synlig og kan prioriteres
+  | 'pending'          // Afventer/planlagt
+  | 'in-progress'      // I gang
+  | 'completed'        // Færdig
+  | 'canceled'         // Annulleret
+  | 'approved'         // Godkendt
+  | 'invoiced';        // Faktureret
 
 export interface Task {
   id: string;

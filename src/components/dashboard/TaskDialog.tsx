@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Task, Machine } from '@/types';
+import { Task, Machine, TaskStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
   const { user, hasPermission } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>(task.status);
   const [customerName, setCustomerName] = useState(task.customerName || '');
   const [hourlyRate, setHourlyRate] = useState(task.hourlyRate || 750);
   const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours || 2);
@@ -53,6 +54,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
   useEffect(() => {
     setCurrentTask(task);
     setAssignedTo(task.assignedTo || 'unassigned');
+    setTaskStatus(task.status);
     setCustomerName(task.customerName || '');
     setHourlyRate(task.hourlyRate || 750);
     setEstimatedHours(task.estimatedHours || 2);
@@ -60,6 +62,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const canEdit = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician');
   const canAssign = hasPermission('admin') || hasPermission('leader');
+  const canChangeStatus = hasPermission('admin') || hasPermission('leader') || hasPermission('lagermand');
   const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin') || hasPermission('blacksmith');
 
   const eligibleUsers = mockUsers.filter(u => 
@@ -82,11 +85,14 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'awaiting-parts': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'ready-for-repair': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'in-progress': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'approved': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'invoiced': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'canceled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -118,6 +124,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
     const updatedTask: Task = {
       ...currentTask,
       assignedTo: assignedTo === 'unassigned' ? undefined : assignedTo,
+      status: taskStatus,
       customerName,
       hourlyRate,
       estimatedHours
@@ -134,8 +141,8 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // Reset to original task values
     setAssignedTo(currentTask.assignedTo || 'unassigned');
+    setTaskStatus(currentTask.status);
     setCustomerName(currentTask.customerName || '');
     setHourlyRate(currentTask.hourlyRate || 750);
     setEstimatedHours(currentTask.estimatedHours || 2);
@@ -198,6 +205,29 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
             <CardContent className="space-y-4">
               {isEditing ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {canChangeStatus && (
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium">Status</label>
+                      <Select value={taskStatus} onValueChange={(v) => setTaskStatus(v as TaskStatus)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="awaiting-parts">Afventer reservedele</SelectItem>
+                          <SelectItem value="ready-for-repair">Klar til reparation</SelectItem>
+                          <SelectItem value="pending">Afventer</SelectItem>
+                          <SelectItem value="in-progress">I gang</SelectItem>
+                          <SelectItem value="completed">Færdig</SelectItem>
+                          <SelectItem value="canceled">Annulleret</SelectItem>
+                          <SelectItem value="approved">Godkendt</SelectItem>
+                          <SelectItem value="invoiced">Faktureret</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Når reservedele er modtaget: Skift fra &quot;Afventer reservedele&quot; til &quot;Klar til reparation&quot; – opgaven bliver synlig for teknikerne.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Tildelt til</label>
                     <Select value={assignedTo} onValueChange={setAssignedTo}>
@@ -302,8 +332,8 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {/* Take Task Button */}
-                {currentTask.status === 'pending' && canTakeTask && !isAssignedToMe && (
+                {/* Take Task Button - synlig for ready-for-repair og pending */}
+                {(currentTask.status === 'ready-for-repair' || currentTask.status === 'pending') && canTakeTask && !isAssignedToMe && (
                   <Button onClick={handleAssignToMe} className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
                     Tag ansvar for opgaven
@@ -311,7 +341,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                 )}
 
                 {/* Assign Task Button - For admin/leader to assign to technician */}
-                {canAssign && (currentTask.status === 'pending' || currentTask.status === 'in-progress') && (
+                {canAssign && (currentTask.status === 'ready-for-repair' || currentTask.status === 'pending' || currentTask.status === 'in-progress') && (
                   <Button 
                     onClick={() => setIsEditing(true)} 
                     variant="outline" 

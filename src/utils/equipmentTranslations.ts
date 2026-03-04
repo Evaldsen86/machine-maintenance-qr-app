@@ -36,13 +36,30 @@ export const getStatusDetails = (status: string): {
   variant: 'default' | 'outline' | 'secondary' | 'destructive' 
 } => {
   switch (status) {
+    case 'awaiting-parts':
+      return { label: 'Afventer reservedele', variant: 'outline' };
+    case 'ready-for-repair':
+      return { label: 'Klar til reparation', variant: 'secondary' };
     case 'pending':
       return { label: 'Afventer', variant: 'outline' };
     case 'in-progress':
       return { label: 'I gang', variant: 'secondary' };
     case 'completed':
-      return { label: 'Afsluttet', variant: 'default' };
+      return { label: 'Færdig', variant: 'default' };
+    case 'canceled':
+      return { label: 'Annulleret', variant: 'destructive' };
+    case 'approved':
+      return { label: 'Godkendt', variant: 'default' };
+    case 'invoiced':
+      return { label: 'Faktureret', variant: 'default' };
     default:
       return { label: status, variant: 'outline' };
   }
 };
+
+/** Statusser der gør opgaven synlig for teknikere (kan tages i arbejde) */
+export const TECHNICIAN_VISIBLE_STATUSES = ['ready-for-repair', 'pending', 'in-progress'] as const;
+
+/** Tjek om opgaven er synlig i prioriteringslisten for teknikere */
+export const isTaskVisibleForTechnicians = (status: string): boolean =>
+  TECHNICIAN_VISIBLE_STATUSES.includes(status as any);

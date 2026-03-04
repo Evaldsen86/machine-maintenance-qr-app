@@ -37,7 +37,7 @@ const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpda
 
   const tasks = machine.tasks || [];
   const activeTasks = tasks.filter(task => 
-    task.status === 'pending' || task.status === 'in-progress'
+    ['awaiting-parts', 'ready-for-repair', 'pending', 'in-progress'].includes(task.status)
   );
 
   const getPriorityIcon = (priority: string) => {
