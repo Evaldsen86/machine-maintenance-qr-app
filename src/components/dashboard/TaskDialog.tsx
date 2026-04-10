@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -23,6 +25,13 @@ import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { mockUsers } from '@/data/mockData';
 import { formatCurrency } from '@/utils/currencyUtils';
 import TaskWorkflow from './TaskWorkflow';
+import {
+  addAssigneeToTask,
+  assigneesPayloadFromIds,
+  formatTaskAssignees,
+  getTaskAssigneeIds,
+  isTaskAssignedToCurrentUser,
+} from '@/utils/taskAssignees';
 
 interface TaskDialogProps {
   task: Task;
@@ -43,7 +52,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 }) => {
   const { user, hasPermission } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [taskStatus, setTaskStatus] = useState<TaskStatus>(task.status);
   const [customerName, setCustomerName] = useState(task.customerName || '');
   const [hourlyRate, setHourlyRate] = useState(task.hourlyRate || 750);
@@ -53,7 +62,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
   // Update state when task prop changes
   useEffect(() => {
     setCurrentTask(task);
-    setAssignedTo(task.assignedTo || 'unassigned');
+    setSelectedAssigneeIds(getTaskAssigneeIds(task));
     setTaskStatus(task.status);
     setCustomerName(task.customerName || '');
     setHourlyRate(task.hourlyRate || 750);
@@ -103,27 +112,40 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
   };
 
   const handleAssignToMe = () => {
-    const updatedTask: Task = {
-      ...currentTask,
-      assignedTo: user?.id || user?.name || '',
-      status: 'pending'
+    const uid = user?.id || user?.name || '';
+    const updated = addAssigneeToTask(currentTask, uid);
+    if (!updated) {
+      toast({
+        variant: 'destructive',
+        title: 'Kan ikke tilføje',
+        description: uid
+          ? 'Du er allerede tildelt denne opgave.'
+          : 'Du skal være logget ind.',
+      });
+      return;
+    }
+    const nextTask: Task = {
+      ...updated,
+      status: currentTask.status === 'in-progress' ? 'in-progress' : 'pending',
     };
-    setCurrentTask(updatedTask);
-    setAssignedTo(updatedTask.assignedTo || '');
-    onTaskUpdate(updatedTask);
-    
+    setCurrentTask(nextTask);
+    setSelectedAssigneeIds(getTaskAssigneeIds(nextTask));
+    onTaskUpdate(nextTask);
+
     toast({
-      title: "Opgave tildelt",
-      description: `Du har nu taget ansvar for: ${currentTask.title}`,
+      title: 'Opgave tildelt',
+      description: `Du er tilføjet som tekniker på: ${currentTask.title}`,
     });
   };
 
   // Start work is handled by TaskWorkflow component directly
 
   const handleSaveChanges = () => {
+    const { assignedTo: nextTo, assignedToIds: nextIds } = assigneesPayloadFromIds(selectedAssigneeIds);
     const updatedTask: Task = {
       ...currentTask,
-      assignedTo: assignedTo === 'unassigned' ? undefined : assignedTo,
+      assignedTo: nextTo,
+      assignedToIds: nextIds,
       status: taskStatus,
       customerName,
       hourlyRate,
@@ -141,7 +163,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setAssignedTo(currentTask.assignedTo || 'unassigned');
+    setSelectedAssigneeIds(getTaskAssigneeIds(currentTask));
     setTaskStatus(currentTask.status);
     setCustomerName(currentTask.customerName || '');
     setHourlyRate(currentTask.hourlyRate || 750);
@@ -150,7 +172,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
 
   const dueDate = new Date(currentTask.dueDate);
   const isOverdue = dueDate < new Date() && currentTask.status !== 'completed' && currentTask.status !== 'approved' && currentTask.status !== 'invoiced';
-  const isAssignedToMe = currentTask.assignedTo === user?.id || currentTask.assignedTo === user?.name;
+  const isAssignedToMe = isTaskAssignedToCurrentUser(currentTask, user);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -228,24 +250,48 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                       </p>
                     </div>
                   )}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Tildelt til</label>
-                    <Select value={assignedTo} onValueChange={setAssignedTo}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Vælg person" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Ikke tildelt</SelectItem>
-                        {eligibleUsers.map(u => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name} ({u.role === 'admin' ? 'Administrator' : 
-                              u.role === 'mechanic' ? 'Mekaniker' : 
-                              u.role === 'technician' ? 'Tekniker' : 
-                              u.role === 'blacksmith' ? 'Smed' : 'Chauffør'})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-2 md:col-span-2">
+                    <span className="text-sm font-medium">Tildelte teknikere</span>
+                    <p className="text-xs text-muted-foreground">
+                      Vælg ét eller flere navne. Alle vises i kalenderen på opgavens deadline-dag.
+                    </p>
+                    <div className="max-h-48 overflow-y-auto rounded-md border p-3 space-y-3">
+                      {eligibleUsers.map((u) => (
+                        <div key={u.id} className="flex items-center gap-3">
+                          <Checkbox
+                            id={`assign-${u.id}`}
+                            checked={selectedAssigneeIds.includes(u.id)}
+                            onCheckedChange={(checked) => {
+                              const on = checked === true;
+                              setSelectedAssigneeIds((prev) =>
+                                on
+                                  ? prev.includes(u.id)
+                                    ? prev
+                                    : [...prev, u.id]
+                                  : prev.filter((id) => id !== u.id)
+                              );
+                            }}
+                          />
+                          <Label
+                            htmlFor={`assign-${u.id}`}
+                            className="text-sm font-normal leading-none cursor-pointer flex-1"
+                          >
+                            {u.name}
+                            <span className="text-muted-foreground ml-1">
+                              ({u.role === 'admin'
+                                ? 'Administrator'
+                                : u.role === 'mechanic'
+                                  ? 'Mekaniker'
+                                  : u.role === 'technician'
+                                    ? 'Tekniker'
+                                    : u.role === 'blacksmith'
+                                      ? 'Smed'
+                                      : 'Chauffør'})
+                            </span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -292,7 +338,7 @@ const TaskDialog: React.FC<TaskDialogProps> = ({
                   <div>
                     <span className="text-sm text-muted-foreground">Tildelt til:</span>
                     <div className="font-medium">
-                      {currentTask.assignedTo ? getUserName(currentTask.assignedTo) : 'Ikke tildelt'}
+                      {formatTaskAssignees(currentTask, getUserName) || 'Ikke tildelt'}
                     </div>
                   </div>
                   

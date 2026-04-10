@@ -23,6 +23,7 @@ import {
   suggestNextTask,
   TaskWithMachine,
 } from '@/utils/taskSuggestionUtils';
+import { isTaskAssignedTo } from '@/utils/taskAssignees';
 import { format } from 'date-fns';
 import { da } from 'date-fns/locale';
 
@@ -56,7 +57,7 @@ const TechnicianTaskList: React.FC<TechnicianTaskListProps> = ({
   );
 
   const getTechnicianTasks = (techId: string) =>
-    allTasks.filter((t) => t.assignedTo === techId);
+    allTasks.filter((t) => isTaskAssignedTo(t, techId));
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
@@ -89,7 +90,7 @@ const TechnicianTaskList: React.FC<TechnicianTaskListProps> = ({
 
     return (
       <div className="space-y-4">
-        {suggestedTask && suggestedTask.assignedTo !== tech.id && (
+        {suggestedTask && !isTaskAssignedTo(suggestedTask, tech.id) && (
           <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center gap-2 text-sm font-medium text-primary mb-2">
               <Lightbulb className="h-4 w-4" />

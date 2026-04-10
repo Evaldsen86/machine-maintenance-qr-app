@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getTaskAssigneeIds, isTaskAssignedTo } from "@/utils/taskAssignees";
 
 interface TaskCalendarProps {
   machines: Machine[];
@@ -105,14 +106,23 @@ const TaskCalendar: React.FC<TaskCalendarProps> = ({ machines, onTaskClick }) =>
   let tasksForDate = tasksByDate[selectedKey] || [];
 
   if (filterTechnicianId !== 'all') {
-    tasksForDate = tasksForDate.filter((t) => t.assignedTo === filterTechnicianId);
+    tasksForDate = tasksForDate.filter((t) => isTaskAssignedTo(t, filterTechnicianId));
   }
 
   const tasksByAssignee = useMemo(() => {
     return tasksForDate.reduce((acc, task) => {
-      const assigneeName = task.assignedTo ? (userMap.get(task.assignedTo) || 'Ukendt bruger') : 'Ikke tildelt';
-      if (!acc[assigneeName]) acc[assigneeName] = [];
-      acc[assigneeName].push(task);
+      const ids = getTaskAssigneeIds(task);
+      if (ids.length === 0) {
+        const key = 'Ikke tildelt';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(task);
+        return acc;
+      }
+      for (const id of ids) {
+        const assigneeName = userMap.get(id) || 'Ukendt bruger';
+        if (!acc[assigneeName]) acc[assigneeName] = [];
+        acc[assigneeName].push(task);
+      }
       return acc;
     }, {} as Record<string, TaskWithMachine[]>);
   }, [tasksForDate, userMap]);

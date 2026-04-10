@@ -30,6 +30,12 @@ import InvoiceGenerator from '@/components/invoice/InvoiceGenerator';
 import InvoicePreview from '@/components/invoice/InvoicePreview';
 import { useInvoices } from '@/hooks/useInvoices';
 import PartsManager from '@/components/machine/PartsManager';
+import {
+  addAssigneeToTask,
+  formatTaskAssignees,
+  isTaskAssignedToCurrentUser,
+  taskHasAssignees,
+} from '@/utils/taskAssignees';
 
 interface TaskWorkflowProps {
   task: Task;
@@ -104,7 +110,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
 
   const canTakeTask = hasPermission('mechanic') || hasPermission('technician') || hasPermission('admin');
   const canApprove = hasPermission('admin');
-  const isAssignedToMe = task.assignedTo === user?.id || task.assignedTo === user?.name;
+  const isAssignedToMe = isTaskAssignedToCurrentUser(task, user);
 
   const startWorking = () => {
     if (!user) {
@@ -255,16 +261,27 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
   };
 
   const handleAssignToMe = () => {
+    const uid = user?.id || user?.name || '';
+    const updated = addAssigneeToTask(task, uid);
+    if (!updated) {
+      toast({
+        variant: 'destructive',
+        title: 'Kan ikke tilføje',
+        description: uid
+          ? 'Du er allerede tildelt denne opgave.'
+          : 'Du skal være logget ind.',
+      });
+      return;
+    }
     const updatedTask: Task = {
-      ...task,
-      assignedTo: user?.id || user?.name || '',
-      status: 'pending'
+      ...updated,
+      status: task.status === 'in-progress' ? 'in-progress' : 'pending',
     };
     onTaskUpdate(updatedTask);
-    
+
     toast({
-      title: "Opgave tildelt",
-      description: `Du har nu taget ansvar for: ${task.title}`,
+      title: 'Opgave tildelt',
+      description: `Du er tilføjet som tekniker på: ${task.title}`,
     });
   };
 
@@ -392,7 +409,9 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           </div>
           <div>
             <span className="text-muted-foreground">Tildelt til:</span>
-            <div className="font-medium">{getUserName(task.assignedTo || '')}</div>
+            <div className="font-medium">
+              {formatTaskAssignees(task, getUserName) || 'Ikke tildelt'}
+            </div>
           </div>
           {task.estimatedHours && (
             <div>
@@ -523,7 +542,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
           )}
 
           {/* Start Work Button - Allow multiple people to work on same task */}
-          {(task.status === 'ready-for-repair' || task.status === 'pending') && canTakeTask && (isAssignedToMe || !task.assignedTo || canApprove) && !isWorking && (
+          {(task.status === 'ready-for-repair' || task.status === 'pending') && canTakeTask && (isAssignedToMe || !taskHasAssignees(task) || canApprove) && !isWorking && (
             <Button onClick={startWorking} className="flex-1">
               <Play className="h-4 w-4 mr-2" />
               Start arbejde

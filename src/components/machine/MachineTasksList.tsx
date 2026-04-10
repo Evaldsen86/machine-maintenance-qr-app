@@ -22,6 +22,7 @@ import { mockUsers } from '@/data/mockData';
 import { formatCurrency } from '@/utils/currencyUtils';
 import TaskDialog from '@/components/dashboard/TaskDialog';
 import TaskForm from '@/components/service/TaskForm';
+import { formatTaskAssignees } from '@/utils/taskAssignees';
 
 interface MachineTasksListProps {
   machine: Machine;
@@ -180,10 +181,10 @@ const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpda
                   {dueDate.toLocaleDateString('da-DK')}
                 </span>
                 
-                {task.assignedTo && (
+                {formatTaskAssignees(task, getUserName) && (
                   <span className="flex items-center gap-1">
                     <User className="h-3 w-3" />
-                    {getUserName(task.assignedTo)}
+                    {formatTaskAssignees(task, getUserName)}
                   </span>
                 )}
                 
@@ -239,10 +240,10 @@ const MachineTasksList: React.FC<MachineTasksListProps> = ({ machine, onTaskUpda
                           {dueDate.toLocaleDateString('da-DK')}
                         </span>
                         
-                        {task.assignedTo && (
+                        {formatTaskAssignees(task, getUserName) && (
                           <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {getUserName(task.assignedTo)}
+                            {formatTaskAssignees(task, getUserName)}
                           </span>
                         )}
                       </div>

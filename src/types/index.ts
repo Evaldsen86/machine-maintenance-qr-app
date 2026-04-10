@@ -107,7 +107,10 @@ export interface Task {
   createdAt?: string;
   status: TaskStatus;
   priority?: TaskPriority;
+  /** Primær tildeling (bagudkompatibilitet ved én person; ellers som assignedToIds[0]) */
   assignedTo?: string;
+  /** Alle tildelte teknikere (orden bevares). Ved flere personer inkl. primær. */
+  assignedToIds?: string[];
   equipmentType: EquipmentType;
   timeEntryId?: string;
   approvedBy?: string;
@@ -392,10 +395,33 @@ export interface InventoryPart {
   quantity: number;
   minQuantity: number;
   unit: string;
+  /** Salgspris pr. enhed (hvad kunden betaler / bruges i tilbud) */
   unitPrice: number;
+  /** Indkøbspris pr. enhed (kostpris) */
+  purchasePrice?: number;
+  /** Avance i % pålagt indkøbsprisen for at nå salgsprisen */
+  marginPercent?: number;
+  /** Valgfri kategori til struktur (fx varegruppe eller reol) */
+  category?: string;
   location?: string;
   machineIds: string[];
   notes?: string;
+}
+
+/** Registreret lager-afgang ved accepteret tilbud (til salgsstatistik pr. periode). */
+export interface InventorySaleLine {
+  id: string;
+  occurredAt: string;
+  inventoryPartId: string;
+  partName: string;
+  partNumber: string;
+  quantity: number;
+  unitSalePrice: number;
+  lineTotal: number;
+  /** Placering på varen på tidspunktet for salg */
+  locationSnapshot?: string;
+  source: 'offer';
+  offerId?: string;
 }
 
 // E-Learning Types

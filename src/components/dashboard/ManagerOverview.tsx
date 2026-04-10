@@ -16,6 +16,7 @@ import {
 import { translateType } from '@/utils/equipmentTranslations';
 import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { sortTasksByPriority, TaskWithMachine } from '@/utils/taskSuggestionUtils';
+import { isTaskAssignedTo, taskHasAssignees } from '@/utils/taskAssignees';
 import { format } from 'date-fns';
 import { da } from 'date-fns/locale';
 
@@ -56,10 +57,10 @@ const ManagerOverview: React.FC<ManagerOverviewProps> = ({
   );
 
   const getTechnicianTasks = (techId: string) =>
-    activeTasks.filter((t) => t.assignedTo === techId);
+    activeTasks.filter((t) => isTaskAssignedTo(t, techId));
 
   const getUnassignedTasks = () =>
-    activeTasks.filter((t) => !t.assignedTo).sort((a, b) => {
+    activeTasks.filter((t) => !taskHasAssignees(t)).sort((a, b) => {
       const aVal = ['critical', 'high', 'medium', 'low'].indexOf(a.priority || 'medium');
       const bVal = ['critical', 'high', 'medium', 'low'].indexOf(b.priority || 'medium');
       return aVal - bVal;

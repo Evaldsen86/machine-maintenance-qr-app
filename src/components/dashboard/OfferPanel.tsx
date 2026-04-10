@@ -248,7 +248,15 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
       setOffers(prev => prev.map(o => o.id === editingOffer.id ? updated : o));
       if (justAccepted) {
         validParts.forEach(p => {
-          if (p.inventoryPartId) decreaseQuantity(p.inventoryPartId, p.quantity);
+          if (p.inventoryPartId) {
+            decreaseQuantity(p.inventoryPartId, p.quantity, {
+              unitSalePrice: p.unitPrice,
+              lineTotal: p.totalPrice ?? p.quantity * p.unitPrice,
+              partName: p.name,
+              partNumber: p.partNumber,
+              offerId: updated.id,
+            });
+          }
         });
       }
       toast({ title: "Tilbud opdateret", description: `Tilbuddet til ${updated.customerName} er gemt.` });
@@ -271,7 +279,15 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
       setOffers(prev => [newOffer, ...prev]);
       if (justAccepted) {
         validParts.forEach(p => {
-          if (p.inventoryPartId) decreaseQuantity(p.inventoryPartId, p.quantity);
+          if (p.inventoryPartId) {
+            decreaseQuantity(p.inventoryPartId, p.quantity, {
+              unitSalePrice: p.unitPrice,
+              lineTotal: p.totalPrice ?? p.quantity * p.unitPrice,
+              partName: p.name,
+              partNumber: p.partNumber,
+              offerId: newOffer.id,
+            });
+          }
         });
       }
       toast({ title: "Tilbud oprettet", description: `Tilbuddet til ${newOffer.customerName} er gemt.` });

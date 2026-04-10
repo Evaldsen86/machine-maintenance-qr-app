@@ -38,6 +38,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from '@/hooks/useAuth';
 import { mockUsers } from '@/data/mockData';
+import { formatTaskAssignees } from '@/utils/taskAssignees';
 import { toast } from "@/components/ui/use-toast";
 
 interface TasksListProps {
@@ -61,6 +62,11 @@ const TasksList: React.FC<TasksListProps> = ({ tasks: rawTasks, onTaskComplete }
     u.role === 'blacksmith' || 
     u.role === 'admin'
   );
+
+  const assigneeDisplay = (task: Task) =>
+    formatTaskAssignees(task, (id) =>
+      mockUsers.find((u) => u.id === id || u.name === id)?.name ?? id
+    );
   
   const handleOpenCompleteDialog = (task: Task) => {
     setSelectedTask(task);
@@ -154,10 +160,10 @@ const TasksList: React.FC<TasksListProps> = ({ tasks: rawTasks, onTaskComplete }
                         <Clock className="h-3 w-3 mr-1" />
                         Deadline: {task.dueDate ? new Date(task.dueDate).toLocaleDateString('da-DK') : 'Ukendt'}
                       </span>
-                      {task.assignedTo && (
+                      {assigneeDisplay(task) && (
                         <span className="flex items-center">
                           <User className="h-3 w-3 mr-1" />
-                          Ansvarlig: {task.assignedTo}
+                          Ansvarlig: {assigneeDisplay(task)}
                         </span>
                       )}
                     </div>
@@ -200,10 +206,10 @@ const TasksList: React.FC<TasksListProps> = ({ tasks: rawTasks, onTaskComplete }
                 <p className="text-sm mb-2 text-muted-foreground">{task.description}</p>
                 
                 <div className="flex flex-wrap items-center gap-4 mt-2 text-muted-foreground text-xs">
-                  {task.assignedTo && (
+                  {assigneeDisplay(task) && (
                     <span className="flex items-center">
                       <User className="h-3 w-3 mr-1" />
-                      Udført af: {task.assignedTo}
+                      Udført af: {assigneeDisplay(task)}
                     </span>
                   )}
                 </div>

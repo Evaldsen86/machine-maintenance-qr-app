@@ -1,5 +1,6 @@
 import { Task, TaskPriority } from '@/types';
 import { isTaskVisibleForTechnicians } from '@/utils/equipmentTranslations';
+import { isTaskAssignedTo, taskHasAssignees } from '@/utils/taskAssignees';
 
 export interface TaskWithMachine extends Task {
   machineId: string;
@@ -40,14 +41,14 @@ export function calculateTaskScore(
   else if (daysUntilDue <= 14) score += 5;
 
   // Allerede tildelt denne tekniker = bonus (20 point) – undgå at skifte opgave
-  if (task.assignedTo === technicianId && task.status === 'in-progress') {
+  if (technicianId && isTaskAssignedTo(task, technicianId) && task.status === 'in-progress') {
     score += 20;
-  } else if (task.assignedTo === technicianId) {
+  } else if (technicianId && isTaskAssignedTo(task, technicianId)) {
     score += 10;
   }
 
   // Ikke tildelt nogen = lidt bonus for at fordele arbejde (5 point)
-  if (!task.assignedTo) score += 5;
+  if (!taskHasAssignees(task)) score += 5;
 
   return score;
 }

@@ -1,12 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
-import { InventoryPart } from '@/types';
+import { InventoryPart, InventorySaleLine } from '@/types';
 import * as invDb from '@/lib/inventoryDb';
 
 const STORAGE_KEY = 'inventory_parts';
+const SALES_KEY = 'inventory_sale_lines';
+
+export type InventorySaleMeta = {
+  unitSalePrice: number;
+  lineTotal: number;
+  partName: string;
+  partNumber: string;
+  offerId?: string;
+};
 
 export const useInventory = () => {
   const [parts, setParts] = useState<InventoryPart[]>([]);
+  const [saleLines, setSaleLines] = useState<InventorySaleLine[]>([]);
   const [useIndexedDb, setUseIndexedDb] = useState(false);
+
+  const persistSalesLs = useCallback((lines: InventorySaleLine[]) => {
+    localStorage.setItem(SALES_KEY, JSON.stringify(lines));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -16,13 +30,33 @@ export const useInventory = () => {
         if (count > 0) {
           setUseIndexedDb(true);
           const all = await invDb.getAllParts();
-          if (!cancelled) setParts(all);
+          let sales = await invDb.getAllSaleLines();
+          const fromLs = localStorage.getItem(SALES_KEY);
+          if (sales.length === 0 && fromLs) {
+            try {
+              const parsed = JSON.parse(fromLs) as InventorySaleLine[];
+              if (parsed.length > 0) {
+                for (const line of parsed) {
+                  await invDb.appendSaleLine(line);
+                }
+                localStorage.removeItem(SALES_KEY);
+                sales = parsed;
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          if (!cancelled) {
+            setParts(all);
+            setSaleLines(sales.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)));
+          }
           return;
         }
       } catch {
         // IndexedDB not available
       }
       const stored = localStorage.getItem(STORAGE_KEY);
+      const salesRaw = localStorage.getItem(SALES_KEY);
       if (stored) {
         try {
           const parsed = JSON.parse(stored) as InventoryPart[];
@@ -31,9 +65,19 @@ export const useInventory = () => {
           if (!cancelled) setParts([]);
         }
       }
+      if (salesRaw) {
+        try {
+          const parsed = JSON.parse(salesRaw) as InventorySaleLine[];
+          if (!cancelled) setSaleLines(parsed.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)));
+        } catch {
+          if (!cancelled) setSaleLines([]);
+        }
+      }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const persistPart = useCallback(async (part: InventoryPart) => {
@@ -97,9 +141,53 @@ export const useInventory = () => {
     return parts.filter(p => p.quantity <= p.minQuantity);
   }, [parts]);
 
+  const recordSaleLine = useCallback(
+    async (part: InventoryPart, amount: number, sale: InventorySaleMeta) => {
+      if (amount <= 0) return;
+      const line: InventorySaleLine = {
+        id: `sale-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        occurredAt: new Date().toISOString(),
+        inventoryPartId: part.id,
+        partName: sale.partName,
+        partNumber: sale.partNumber,
+        quantity: amount,
+        unitSalePrice: sale.unitSalePrice,
+        lineTotal: sale.lineTotal,
+        locationSnapshot: part.location,
+        source: 'offer',
+        offerId: sale.offerId,
+      };
+      if (useIndexedDb) {
+        await invDb.appendSaleLine(line);
+        setSaleLines(prev => [line, ...prev].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)));
+      } else {
+        setSaleLines(prev => {
+          const next = [line, ...prev].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+          persistSalesLs(next);
+          return next;
+        });
+      }
+    },
+    [useIndexedDb, persistSalesLs]
+  );
+
   const importBatch = useCallback(async (newParts: InventoryPart[]) => {
     await invDb.putPartsBatch(newParts);
     setUseIndexedDb(true);
+    const fromLs = localStorage.getItem(SALES_KEY);
+    if (fromLs) {
+      try {
+        const parsed = JSON.parse(fromLs) as InventorySaleLine[];
+        for (const line of parsed) {
+          await invDb.appendSaleLine(line);
+        }
+        localStorage.removeItem(SALES_KEY);
+        const merged = await invDb.getAllSaleLines();
+        setSaleLines(merged.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)));
+      } catch {
+        /* ignore */
+      }
+    }
     if (newParts.length <= 1000) {
       setParts(prev => {
         const byId = new Map(prev.map(p => [p.id, p]));
@@ -107,7 +195,6 @@ export const useInventory = () => {
         return Array.from(byId.values());
       });
     } else {
-      const count = await invDb.getPartsCount();
       const recent = await invDb.getAllParts(500);
       setParts(recent);
     }
@@ -116,6 +203,8 @@ export const useInventory = () => {
   const refreshFromDb = useCallback(async () => {
     const all = await invDb.getAllParts(5000);
     setParts(all);
+    const sales = await invDb.getAllSaleLines();
+    setSaleLines(sales.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)));
     if (all.length > 0) setUseIndexedDb(true);
   }, []);
 
@@ -124,24 +213,30 @@ export const useInventory = () => {
     setParts(results);
   }, []);
 
-  const decreaseQuantity = useCallback(async (inventoryPartId: string, amount: number) => {
-    if (useIndexedDb) {
-      const part = await invDb.getPartById(inventoryPartId);
-      if (!part) return;
-      const newQty = Math.max(0, part.quantity - amount);
-      const updated = { ...part, quantity: newQty };
-      await invDb.putPart(updated);
-      setParts(prev => prev.map(p => p.id === inventoryPartId ? updated : p));
-    } else {
-      const part = parts.find(p => p.id === inventoryPartId);
-      if (!part) return;
-      const newQty = Math.max(0, part.quantity - amount);
-      updatePart(inventoryPartId, { quantity: newQty });
-    }
-  }, [useIndexedDb, parts, updatePart]);
+  const decreaseQuantity = useCallback(
+    async (inventoryPartId: string, amount: number, sale?: InventorySaleMeta) => {
+      if (useIndexedDb) {
+        const part = await invDb.getPartById(inventoryPartId);
+        if (!part) return;
+        const newQty = Math.max(0, part.quantity - amount);
+        const updated = { ...part, quantity: newQty };
+        await invDb.putPart(updated);
+        setParts(prev => prev.map(p => p.id === inventoryPartId ? updated : p));
+        if (sale) await recordSaleLine(part, amount, sale);
+      } else {
+        const part = parts.find(p => p.id === inventoryPartId);
+        if (!part) return;
+        const newQty = Math.max(0, part.quantity - amount);
+        updatePart(inventoryPartId, { quantity: newQty });
+        if (sale) await recordSaleLine(part, amount, sale);
+      }
+    },
+    [useIndexedDb, parts, updatePart, recordSaleLine]
+  );
 
   return {
     parts,
+    saleLines,
     setParts,
     addPart,
     updatePart,

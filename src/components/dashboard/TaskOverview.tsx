@@ -26,6 +26,7 @@ import { getStatusDetails } from '@/utils/equipmentTranslations';
 import { formatCurrency } from '@/utils/currencyUtils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { mockUsers } from '@/data/mockData';
+import { formatTaskAssignees } from '@/utils/taskAssignees';
 import TaskWorkflow from './TaskWorkflow';
 import TaskDialog from './TaskDialog';
 
@@ -265,10 +266,10 @@ const TaskOverview: React.FC<TaskOverviewProps> = ({ machines, onTaskUpdate }) =
                                 {dueDate.toLocaleDateString('da-DK')}
                               </span>
                               
-                              {task.assignedTo && (
+                              {formatTaskAssignees(task, getUserName) && (
                                 <span className="flex items-center gap-1">
                                   <User className="h-3 w-3" />
-                                  {getUserName(task.assignedTo)}
+                                  {formatTaskAssignees(task, getUserName)}
                                 </span>
                               )}
                               

@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/use-toast";
 import { Upload, FileSpreadsheet } from 'lucide-react';
 import { InventoryPart } from '@/types';
+import { saleFromPurchaseAndMargin } from '@/utils/inventoryCalculations';
 
 const BATCH_SIZE = 5000;
 
@@ -74,7 +75,10 @@ const InventoryImport: React.FC<InventoryImportProps> = ({ onImport }) => {
         else if (lower.includes('antal') || lower.includes('quantity') || lower.includes('beholdning')) map[h] = 'quantity';
         else if (lower.includes('min') || lower.includes('minimum')) map[h] = 'minQuantity';
         else if (lower.includes('enhed') || lower.includes('unit')) map[h] = 'unit';
-        else if (lower.includes('pris') || lower.includes('price')) map[h] = 'unitPrice';
+        else if (lower.includes('kost') || lower.includes('indkøb') || lower.includes('purchase')) map[h] = 'purchasePrice';
+        else if (lower.includes('avance') || lower.includes('margin') || lower.includes('påslag')) map[h] = 'marginPercent';
+        else if (lower.includes('kategori') || lower.includes('gruppe') || lower.includes('category')) map[h] = 'category';
+        else if (lower.includes('salgs') || lower.includes('udsalgs') || (lower.includes('pris') && !lower.includes('kost'))) map[h] = 'unitPrice';
         else if (lower.includes('placering') || lower.includes('location')) map[h] = 'location';
       });
       setColumnMap(map);
@@ -113,9 +117,16 @@ const InventoryImport: React.FC<InventoryImportProps> = ({ onImport }) => {
 
         const quantity = parseFloat(getValByField(row, 'quantity') || '0') || 0;
         const minQuantity = parseFloat(getValByField(row, 'minQuantity') || '0') || 0;
-        const unitPrice = parseFloat(getValByField(row, 'unitPrice') || '0') || 0;
+        const purchasePrice = parseFloat(getValByField(row, 'purchasePrice') || '0') || 0;
+        const marginPercent = parseFloat(getValByField(row, 'marginPercent') || '0') || 0;
+        const unitPriceRaw = getValByField(row, 'unitPrice');
+        let unitPrice = parseFloat(unitPriceRaw || '0') || 0;
+        if (unitPrice === 0 && purchasePrice > 0) {
+          unitPrice = saleFromPurchaseAndMargin(purchasePrice, marginPercent);
+        }
         const unit = getValByField(row, 'unit') || 'stk';
         const location = getValByField(row, 'location') || '';
+        const category = getValByField(row, 'category') || '';
 
         parts.push({
           id: `inv-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 9)}`,
@@ -124,7 +135,10 @@ const InventoryImport: React.FC<InventoryImportProps> = ({ onImport }) => {
           quantity,
           minQuantity,
           unit,
+          purchasePrice: purchasePrice || undefined,
+          marginPercent: marginPercent || undefined,
           unitPrice,
+          category: category.trim() || undefined,
           location: location || undefined,
           machineIds: [],
         });
@@ -207,7 +221,10 @@ const InventoryImport: React.FC<InventoryImportProps> = ({ onImport }) => {
                       <SelectItem value="quantity">Beholdning</SelectItem>
                       <SelectItem value="minQuantity">Minimum</SelectItem>
                       <SelectItem value="unit">Enhed</SelectItem>
-                      <SelectItem value="unitPrice">Pris</SelectItem>
+                      <SelectItem value="purchasePrice">Indkøbspris</SelectItem>
+                      <SelectItem value="marginPercent">Avance %</SelectItem>
+                      <SelectItem value="unitPrice">Salgspris</SelectItem>
+                      <SelectItem value="category">Kategori</SelectItem>
                       <SelectItem value="location">Placering</SelectItem>
                     </SelectContent>
                   </Select>
