@@ -337,7 +337,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
 
   const actualCost = (totalTime / 60) * hourlyRate;
 
-  const previewVatRate = 25;
+  const previewVatRate = 0;
   const completedEntries = timeEntries.filter(entry => entry.status === 'completed' || entry.status === 'approved');
   const previewItems = completedEntries.flatMap(entry => {
     const items: Part[] = entry.partsUsed || [];
@@ -373,7 +373,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
 
   const previewSubtotal = previewItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const previewVat = previewSubtotal * (previewVatRate / 100);
-  const previewTotal = previewSubtotal + previewVat;
+  const previewTotal = previewSubtotal;
   const showInvoicePreview =
     (task.status === 'completed' || task.status === 'approved' || task.status === 'invoiced') &&
     previewItems.length > 0;

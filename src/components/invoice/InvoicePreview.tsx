@@ -89,10 +89,12 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             <span className="text-muted-foreground">Subtotal</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
-          <div className="flex w-full max-w-xs items-center justify-between">
-            <span className="text-muted-foreground">Moms</span>
-            <span>{formatCurrency(vat)}</span>
-          </div>
+          {vat > 0 && (
+            <div className="flex w-full max-w-xs items-center justify-between">
+              <span className="text-muted-foreground">Moms</span>
+              <span>{formatCurrency(vat)}</span>
+            </div>
+          )}
           <div className="flex w-full max-w-xs items-center justify-between text-base font-semibold">
             <span>Total</span>
             <span>{formatCurrency(total)}</span>

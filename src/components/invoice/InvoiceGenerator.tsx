@@ -28,7 +28,6 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
   const { user } = useAuth();
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [hourlyRate, setHourlyRate] = useState<number>(750);
-  const [vatRate, setVatRate] = useState<number>(25);
   const [notes, setNotes] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>(formatDate(addDays(new Date(), 14).toISOString()));
 
@@ -80,8 +79,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
     const selectedTimeEntries = timeEntries.filter(entry => selectedEntries.includes(entry.id));
     const items = buildInvoiceItems(selectedTimeEntries);
     const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-    const vat = subtotal * (vatRate / 100);
-    const total = subtotal + vat;
+    const vat = 0;
+    const total = subtotal;
 
     const invoice: Invoice = {
       id: `invoice-${Date.now()}`,
@@ -119,8 +118,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
   const selectedTimeEntries = timeEntries.filter(entry => selectedEntries.includes(entry.id));
   const previewItems = buildInvoiceItems(selectedTimeEntries);
   const previewSubtotal = previewItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const previewVat = previewSubtotal * (vatRate / 100);
-  const previewTotal = previewSubtotal + previewVat;
+  const previewVat = 0;
+  const previewTotal = previewSubtotal;
   const previewInvoiceDate = new Date().toISOString();
   const previewDueDate = (() => {
     const parsed = new Date(dueDate);
@@ -150,14 +149,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium">Moms (%)</label>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={vatRate}
-              onChange={(e) => setVatRate(parseFloat(e.target.value) || 0)}
-            />
+            <label className="text-sm font-medium">Moms</label>
+            <Input value="Ingen moms (Grønland)" disabled />
           </div>
           
           <div className="space-y-2">

@@ -38,11 +38,24 @@ import {
 import InventoryStocktake from '@/components/inventory/InventoryStocktake';
 import InventoryLocationView from '@/components/inventory/InventoryLocationView';
 import InventorySalesPeriod from '@/components/inventory/InventorySalesPeriod';
+import InventoryDirectSale from '@/components/inventory/InventoryDirectSale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InventoryImport from '@/components/inventory/InventoryImport';
 
 const Inventory: React.FC = () => {
-  const { parts, saleLines, addPart, updatePart, deletePart, getLowStockParts, importBatch, refreshFromDb, searchPartsInDb, useIndexedDb } = useInventory();
+  const {
+    parts,
+    saleLines,
+    addPart,
+    updatePart,
+    deletePart,
+    getLowStockParts,
+    importBatch,
+    refreshFromDb,
+    searchPartsInDb,
+    decreaseQuantity,
+    useIndexedDb,
+  } = useInventory();
   const { machines } = useMachines();
   const [showDialog, setShowDialog] = useState(false);
   const [editingPart, setEditingPart] = useState<InventoryPart | null>(null);
@@ -200,6 +213,7 @@ const Inventory: React.FC = () => {
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="list">Reservedele</TabsTrigger>
             <TabsTrigger value="locations">Placeringer</TabsTrigger>
+            <TabsTrigger value="direct-sales">Direkte salg</TabsTrigger>
             <TabsTrigger value="sales">Salg</TabsTrigger>
             <TabsTrigger value="stocktake">Optælling</TabsTrigger>
             <TabsTrigger value="import">
@@ -212,6 +226,20 @@ const Inventory: React.FC = () => {
           </TabsContent>
           <TabsContent value="sales" className="mt-6">
             <InventorySalesPeriod saleLines={saleLines} />
+          </TabsContent>
+          <TabsContent value="direct-sales" className="mt-6">
+            <InventoryDirectSale
+              parts={parts}
+              onSellPart={async (part, soldQuantity, unitSalePrice) => {
+                await decreaseQuantity(part.id, soldQuantity, {
+                  unitSalePrice,
+                  lineTotal: soldQuantity * unitSalePrice,
+                  partName: part.name,
+                  partNumber: part.partNumber,
+                  source: 'direct',
+                });
+              }}
+            />
           </TabsContent>
           <TabsContent value="import" className="mt-6">
             <InventoryImport

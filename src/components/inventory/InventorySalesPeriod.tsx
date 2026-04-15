@@ -106,7 +106,7 @@ const InventorySalesPeriod: React.FC<InventorySalesPeriodProps> = ({ saleLines }
           Salg pr. periode
         </CardTitle>
         <CardDescription>
-          Oplysninger fra accepterede tilbud med reservedele fra lager. Vælg datointerval — kun linjer i perioden vises.
+          Oplysninger fra accepterede tilbud og direkte salg fra lager. Vælg datointerval — kun linjer i perioden vises.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -157,6 +157,7 @@ const InventorySalesPeriod: React.FC<InventorySalesPeriodProps> = ({ saleLines }
             <thead className="bg-muted/50">
               <tr>
                 <th className="text-left p-3 font-medium">Dato</th>
+                <th className="text-left p-3 font-medium">Kilde</th>
                 <th className="text-left p-3 font-medium">Vare</th>
                 <th className="text-left p-3 font-medium">Art.nr.</th>
                 <th className="text-left p-3 font-medium">Placering (ved salg)</th>
@@ -168,8 +169,8 @@ const InventorySalesPeriod: React.FC<InventorySalesPeriodProps> = ({ saleLines }
             <tbody>
               {sortedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                    Ingen salg i valgt periode. Salg registreres når et tilbud med lager-reservedele sættes til accepteret.
+                  <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    Ingen salg i valgt periode. Salg registreres ved accepterede tilbud eller direkte salg fra lager.
                   </td>
                 </tr>
               ) : (
@@ -185,6 +186,7 @@ const InventorySalesPeriod: React.FC<InventorySalesPeriodProps> = ({ saleLines }
                   return (
                     <tr key={row.id} className="border-t hover:bg-muted/30">
                       <td className="p-3 whitespace-nowrap text-muted-foreground">{dateStr}</td>
+                      <td className="p-3 text-muted-foreground">{row.source === 'direct' ? 'Direkte salg' : 'Tilbud'}</td>
                       <td className="p-3 font-medium">{row.partName}</td>
                       <td className="p-3 text-muted-foreground">{row.partNumber}</td>
                       <td className="p-3 font-mono text-xs">{row.locationSnapshot || '—'}</td>

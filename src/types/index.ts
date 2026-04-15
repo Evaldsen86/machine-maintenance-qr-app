@@ -420,7 +420,7 @@ export interface InventorySaleLine {
   lineTotal: number;
   /** Placering på varen på tidspunktet for salg */
   locationSnapshot?: string;
-  source: 'offer';
+  source: 'offer' | 'direct';
   offerId?: string;
 }
 

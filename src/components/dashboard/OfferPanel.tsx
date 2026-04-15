@@ -397,8 +397,8 @@ const OfferPanel: React.FC<OfferPanelProps> = ({ addTask: addTaskProp }) => {
       });
     });
     const subtotal = items.reduce((s, i) => s + (i.totalPrice ?? 0), 0);
-    const vat = subtotal * 0.25;
-    const total = subtotal + vat;
+    const vat = 0;
+    const total = subtotal;
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);
     const inv = addInvoice({

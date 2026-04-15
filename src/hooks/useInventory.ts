@@ -10,6 +10,7 @@ export type InventorySaleMeta = {
   lineTotal: number;
   partName: string;
   partNumber: string;
+  source?: 'offer' | 'direct';
   offerId?: string;
 };
 
@@ -154,7 +155,7 @@ export const useInventory = () => {
         unitSalePrice: sale.unitSalePrice,
         lineTotal: sale.lineTotal,
         locationSnapshot: part.location,
-        source: 'offer',
+        source: sale.source || 'offer',
         offerId: sale.offerId,
       };
       if (useIndexedDb) {
