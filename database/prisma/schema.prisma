@@ -1,0 +1,556 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyStatus {
+  active
+  suspended
+  archived
+}
+
+enum UserStatus {
+  active
+  invited
+  disabled
+}
+
+enum TaskStatus {
+  pending
+  ready_for_repair
+  awaiting_parts
+  in_progress
+  completed
+  canceled
+  approved
+  invoiced
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum MachineStatus {
+  active
+  inactive
+  maintenance
+  repair
+  retired
+}
+
+enum DocumentAccessLevel {
+  private
+  restricted
+  company
+  public
+}
+
+enum QRCodeStatus {
+  active
+  revoked
+  expired
+}
+
+enum OfferStatus {
+  draft
+  sent
+  accepted
+  rejected
+  expired
+  invoiced
+}
+
+enum InventoryPartStatus {
+  active
+  low_stock
+  out_of_stock
+  archived
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  restore
+  login
+  logout
+  upload
+  download
+  status_change
+  assign
+  unassign
+}
+
+model Company {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  slug             String        @unique
+  registrationNo   String?       @map("registration_no")
+  contactEmail     String?       @map("contact_email")
+  contactPhone     String?       @map("contact_phone")
+  addressLine1     String?       @map("address_line_1")
+  addressLine2     String?       @map("address_line_2")
+  city             String?
+  postalCode       String?       @map("postal_code")
+  country          String?
+  timezone         String?       @default("UTC")
+  status           CompanyStatus @default(active)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
+
+  users             User[]
+  roles             Role[]
+  permissions       Permission[]
+  userRoles         UserRole[]
+  machines          Machine[]
+  machineDocuments  MachineDocument[]
+  qrCodes           QRCode[]
+  tasks             Task[]
+  taskAssignees     TaskAssignee[]
+  maintenanceRecord MaintenanceRecord[]
+  serviceRecords    ServiceRecord[]
+  oilInformation    OilInformation[]
+  inventoryParts    InventoryPart[]
+  offers            Offer[]
+  offerLines        OfferLine[]
+  auditLogs         AuditLog[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("companies")
+}
+
+model User {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String      @map("company_id") @db.Uuid
+  email             String
+  passwordHash      String      @map("password_hash")
+  fullName          String      @map("full_name")
+  phone             String?
+  status            UserStatus  @default(active)
+  isCompanyAdmin    Boolean     @default(false) @map("is_company_admin")
+  lastLoginAt       DateTime?   @map("last_login_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  deletedAt         DateTime?   @map("deleted_at")
+
+  company           Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userRoles         UserRole[]
+  tasksCreated      Task[]      @relation("TaskCreatedBy")
+  machineDocuments  MachineDocument[] @relation("MachineDocumentUploadedBy")
+  maintenanceBy     MaintenanceRecord[] @relation("MaintenanceRecordedBy")
+  serviceBy         ServiceRecord[] @relation("ServiceRecordedBy")
+  offersCreated     Offer[]     @relation("OfferCreatedBy")
+  taskAssignees     TaskAssignee[]
+  auditLogsAsActor  AuditLog[]  @relation("AuditActorUser")
+
+  @@unique([companyId, email])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userRoles   UserRole[]
+
+  @@unique([companyId, code])
+  @@index([companyId, deletedAt])
+  @@map("roles")
+}
+
+model Permission {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  userRoles   UserRole[]
+
+  @@unique([companyId, code])
+  @@index([companyId, deletedAt])
+  @@map("permissions")
+}
+
+model UserRole {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String     @map("company_id") @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String?    @map("permission_id") @db.Uuid
+  assignedAt   DateTime   @default(now()) @map("assigned_at")
+  assignedBy   String?    @map("assigned_by") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission   Permission? @relation(fields: [permissionId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, userId, roleId, permissionId])
+  @@index([companyId, userId])
+  @@index([companyId, roleId])
+  @@index([companyId, permissionId])
+  @@map("user_roles")
+}
+
+model Machine {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String       @map("company_id") @db.Uuid
+  name              String
+  model             String
+  brand             String?
+  serialNumber      String       @map("serial_number")
+  status            MachineStatus @default(active)
+  description       String?
+  locationName      String?      @map("location_name")
+  locationAddress   String?      @map("location_address")
+  latitude          Decimal?     @db.Decimal(10, 7)
+  longitude         Decimal?     @db.Decimal(10, 7)
+  specifications    Json?
+  metadata          Json?
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  deletedAt         DateTime?    @map("deleted_at")
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  documents          MachineDocument[]
+  qrCodes            QRCode[]
+  tasks              Task[]
+  maintenanceRecords MaintenanceRecord[]
+  serviceRecords     ServiceRecord[]
+  oilInformation     OilInformation[]
+  offers             Offer[]
+
+  @@unique([companyId, serialNumber])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@index([companyId, name])
+  @@map("machines")
+}
+
+model MachineDocument {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String               @map("company_id") @db.Uuid
+  machineId        String               @map("machine_id") @db.Uuid
+  uploadedByUserId String?              @map("uploaded_by_user_id") @db.Uuid
+  title            String
+  description      String?
+  fileName         String               @map("file_name")
+  filePath         String               @map("file_path")
+  mimeType         String?              @map("mime_type")
+  fileSizeBytes    BigInt?              @map("file_size_bytes")
+  accessLevel      DocumentAccessLevel  @default(restricted) @map("access_level")
+  metadata         Json?
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  deletedAt        DateTime?            @map("deleted_at")
+
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine          Machine              @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  uploadedBy       User?                @relation("MachineDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, machineId])
+  @@index([companyId, accessLevel])
+  @@index([companyId, deletedAt])
+  @@map("machine_documents")
+}
+
+model QRCode {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String        @map("company_id") @db.Uuid
+  machineId         String        @map("machine_id") @db.Uuid
+  qrToken           String        @map("qr_token")
+  publicSlug        String?       @map("public_slug")
+  payloadHash       String?       @map("payload_hash")
+  status            QRCodeStatus  @default(active)
+  expiresAt         DateTime?     @map("expires_at")
+  lastScannedAt     DateTime?     @map("last_scanned_at")
+  lastScannedByIp   String?       @map("last_scanned_by_ip")
+  options           Json?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  company           Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine           Machine       @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, qrToken])
+  @@unique([companyId, publicSlug])
+  @@index([companyId, machineId])
+  @@index([companyId, status])
+  @@index([companyId, payloadHash])
+  @@index([companyId, deletedAt])
+  @@map("qr_codes")
+}
+
+model Task {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String       @map("company_id") @db.Uuid
+  machineId        String       @map("machine_id") @db.Uuid
+  createdByUserId  String?      @map("created_by_user_id") @db.Uuid
+  title            String
+  description      String?
+  status           TaskStatus   @default(pending)
+  priority         TaskPriority @default(medium)
+  dueDate          DateTime?    @map("due_date")
+  startedAt        DateTime?    @map("started_at")
+  completedAt      DateTime?    @map("completed_at")
+  estimatedHours   Decimal?     @map("estimated_hours") @db.Decimal(8, 2)
+  actualHours      Decimal?     @map("actual_hours") @db.Decimal(8, 2)
+  metadata         Json?
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+
+  company          Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine          Machine      @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  createdBy        User?        @relation("TaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  assignees        TaskAssignee[]
+  maintenanceLinks MaintenanceRecord[] @relation("MaintenanceTask")
+  serviceLinks     ServiceRecord[] @relation("ServiceTask")
+
+  @@index([companyId, machineId])
+  @@index([companyId, status])
+  @@index([companyId, priority])
+  @@index([companyId, dueDate])
+  @@index([companyId, deletedAt])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  taskId       String   @map("task_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedBy   String?  @map("assigned_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, taskId, userId])
+  @@index([companyId, userId])
+  @@index([companyId, taskId])
+  @@map("task_assignees")
+}
+
+model MaintenanceRecord {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  machineId        String    @map("machine_id") @db.Uuid
+  taskId           String?   @map("task_id") @db.Uuid
+  recordedByUserId String?   @map("recorded_by_user_id") @db.Uuid
+  maintenanceDate  DateTime  @map("maintenance_date")
+  description      String
+  technicianName   String?   @map("technician_name")
+  notes            String?
+  metadata         Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine          Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  task             Task?     @relation("MaintenanceTask", fields: [taskId], references: [id], onDelete: SetNull)
+  recordedBy       User?     @relation("MaintenanceRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, machineId])
+  @@index([companyId, maintenanceDate])
+  @@index([companyId, deletedAt])
+  @@map("maintenance_records")
+}
+
+model ServiceRecord {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  machineId        String    @map("machine_id") @db.Uuid
+  taskId           String?   @map("task_id") @db.Uuid
+  recordedByUserId String?   @map("recorded_by_user_id") @db.Uuid
+  serviceDate      DateTime  @map("service_date")
+  description      String
+  performedBy      String?   @map("performed_by")
+  issuesFound      String?   @map("issues_found")
+  odometerReading  Int?      @map("odometer_reading")
+  metadata         Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine          Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  task             Task?     @relation("ServiceTask", fields: [taskId], references: [id], onDelete: SetNull)
+  recordedBy       User?     @relation("ServiceRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, machineId])
+  @@index([companyId, serviceDate])
+  @@index([companyId, deletedAt])
+  @@map("service_records")
+}
+
+model OilInformation {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String    @map("company_id") @db.Uuid
+  machineId         String    @map("machine_id") @db.Uuid
+  oilType           String    @map("oil_type")
+  viscosity         String?
+  quantity          Decimal?  @db.Decimal(10, 2)
+  quantityUnit      String?   @default("L") @map("quantity_unit")
+  lastChangedAt     DateTime? @map("last_changed_at")
+  nextChangeDueAt   DateTime? @map("next_change_due_at")
+  notes             String?
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine           Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, machineId])
+  @@index([companyId, nextChangeDueAt])
+  @@index([companyId, deletedAt])
+  @@map("oil_information")
+}
+
+model InventoryPart {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId         String              @map("company_id") @db.Uuid
+  partNumber        String?             @map("part_number")
+  sku               String?
+  name              String
+  description       String?
+  category          String?
+  unit              String?             @default("pcs")
+  quantityInStock   Decimal             @default(0) @map("quantity_in_stock") @db.Decimal(14, 3)
+  minimumStockLevel Decimal             @default(0) @map("minimum_stock_level") @db.Decimal(14, 3)
+  locationName      String?             @map("location_name")
+  status            InventoryPartStatus @default(active)
+  metadata          Json?
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  deletedAt         DateTime?           @map("deleted_at")
+
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  offerLines        OfferLine[]
+
+  @@unique([companyId, sku])
+  @@index([companyId, partNumber])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("inventory_parts")
+}
+
+model Offer {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String      @map("company_id") @db.Uuid
+  machineId        String?     @map("machine_id") @db.Uuid
+  createdByUserId  String?     @map("created_by_user_id") @db.Uuid
+  offerNumber      String      @map("offer_number")
+  customerName     String      @map("customer_name")
+  customerEmail    String?     @map("customer_email")
+  customerPhone    String?     @map("customer_phone")
+  currency         String      @default("DKK")
+  status           OfferStatus @default(draft)
+  validUntil       DateTime?   @map("valid_until")
+  subtotalAmount   Decimal     @default(0) @map("subtotal_amount") @db.Decimal(14, 2)
+  taxAmount        Decimal     @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount      Decimal     @default(0) @map("total_amount") @db.Decimal(14, 2)
+  notes            String?
+  metadata         Json?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  deletedAt        DateTime?   @map("deleted_at")
+
+  company          Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  machine          Machine?    @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  createdBy        User?       @relation("OfferCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lines            OfferLine[]
+
+  @@unique([companyId, offerNumber])
+  @@index([companyId, status])
+  @@index([companyId, machineId])
+  @@index([companyId, deletedAt])
+  @@map("offers")
+}
+
+model OfferLine {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  offerId          String    @map("offer_id") @db.Uuid
+  inventoryPartId  String?   @map("inventory_part_id") @db.Uuid
+  lineNumber       Int       @map("line_number")
+  description      String
+  quantity         Decimal   @default(1) @db.Decimal(14, 3)
+  unitPrice        Decimal   @default(0) @map("unit_price") @db.Decimal(14, 2)
+  taxRate          Decimal   @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  lineTotal        Decimal   @default(0) @map("line_total") @db.Decimal(14, 2)
+  metadata         Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  offer            Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  inventoryPart    InventoryPart? @relation(fields: [inventoryPartId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, offerId, lineNumber])
+  @@index([companyId, offerId])
+  @@index([companyId, inventoryPartId])
+  @@index([companyId, deletedAt])
+  @@map("offer_lines")
+}
+
+model AuditLog {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String      @map("company_id") @db.Uuid
+  actorUserId      String?     @map("actor_user_id") @db.Uuid
+  action           AuditAction
+  entityType       String      @map("entity_type")
+  entityId         String?     @map("entity_id") @db.Uuid
+  targetUserId     String?     @map("target_user_id") @db.Uuid
+  machineId        String?     @map("machine_id") @db.Uuid
+  taskId           String?     @map("task_id") @db.Uuid
+  ipAddress        String?     @map("ip_address")
+  userAgent        String?     @map("user_agent")
+  details          Json?
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  company          Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  actorUser        User?       @relation("AuditActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([companyId, action])
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, machineId])
+  @@index([companyId, taskId])
+  @@map("audit_logs")
+}
+

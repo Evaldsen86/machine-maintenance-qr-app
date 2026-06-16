@@ -47,11 +47,8 @@ services:
       # Optional: expose console during setup
       - "9000:9000"
       - "9001:9001"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+    # No healthcheck in skeleton: avoids dependency on tools (like `curl`)
+    # that may not exist in the container.
 
   backend:
     # TODO (Phase 3/4): Add backend production Dockerfile at backend/Dockerfile
@@ -82,10 +79,8 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
     depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      - postgres
+      - minio
     ports:
       # Optional: expose only via nginx later
       - "${BACKEND_PORT}:${BACKEND_PORT}"
