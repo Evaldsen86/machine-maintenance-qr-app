@@ -72,7 +72,7 @@ exports.deleteMachine = async (req, res) => {
     if (!machine) {
       return res.status(404).json({ message: ERROR_MESSAGES.MACHINE_NOT_FOUND });
     }
-    await machine.remove();
+    await machine.deleteOne();
     res.json({ message: SUCCESS_MESSAGES.MACHINE_DELETED });
   } catch (err) {
     res.status(500).json({ message: ERROR_MESSAGES.SERVER_ERROR });
@@ -112,7 +112,7 @@ exports.addMaintenance = async (req, res) => {
       ...req.body,
       date: formatDate(req.body.date)
     };
-    machine.maintenanceHistory.push(maintenance);
+    machine.maintenance.push(maintenance);
     const updatedMachine = await machine.save();
     res.status(201).json({
       message: SUCCESS_MESSAGES.MAINTENANCE_ADDED,
@@ -130,9 +130,9 @@ exports.updateOilInfo = async (req, res) => {
     if (!machine) {
       return res.status(404).json({ message: ERROR_MESSAGES.MACHINE_NOT_FOUND });
     }
-    machine.oilInformation = {
+    machine.oilInfo = {
       ...req.body,
-      lastChanged: formatDate(req.body.lastChanged),
+      lastChange: formatDate(req.body.lastChanged),
       nextChange: formatDate(req.body.nextChange)
     };
     const updatedMachine = await machine.save();

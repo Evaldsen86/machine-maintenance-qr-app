@@ -6,8 +6,18 @@ jest.mock('mongoose', () => ({
 }));
 
 describe('Database Configuration', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  beforeAll(() => {
+    process.env.NODE_ENV = 'test';
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('should connect to MongoDB successfully', async () => {
@@ -33,16 +43,13 @@ describe('Database Configuration', () => {
 
   it('should handle connection error', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    const processExitSpy = jest.spyOn(process, 'exit').mockImplementation();
     const error = new Error('Connection failed');
     mongoose.connect.mockRejectedValueOnce(error);
 
-    await connectDB();
+    await expect(connectDB()).rejects.toThrow('Connection failed');
 
     expect(consoleSpy).toHaveBeenCalledWith('Error: Connection failed');
-    expect(processExitSpy).toHaveBeenCalledWith(1);
     consoleSpy.mockRestore();
-    processExitSpy.mockRestore();
   });
 
   it('should use correct MongoDB URI from environment variables', async () => {

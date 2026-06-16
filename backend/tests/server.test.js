@@ -1,5 +1,4 @@
 const request = require('supertest');
-const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
@@ -11,7 +10,7 @@ beforeAll(async () => {
   const mongoUri = mongoServer.getUri();
   await mongoose.connect(mongoUri);
 
-  app = require('../server');
+  app = require('../app');
 });
 
 afterAll(async () => {

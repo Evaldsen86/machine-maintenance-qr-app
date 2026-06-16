@@ -67,6 +67,26 @@ machineSchema.pre('save', function(next) {
   next();
 });
 
+// Backward-compatible aliases used by legacy tests/routes
+machineSchema.virtual('maintenanceHistory')
+  .get(function() {
+    return this.maintenance;
+  })
+  .set(function(value) {
+    this.maintenance = value;
+  });
+
+machineSchema.virtual('oilInformation')
+  .get(function() {
+    return this.oilInfo;
+  })
+  .set(function(value) {
+    this.oilInfo = value;
+  });
+
+machineSchema.set('toJSON', { virtuals: true });
+machineSchema.set('toObject', { virtuals: true });
+
 const Machine = mongoose.model('Machine', machineSchema);
 
 module.exports = Machine; 

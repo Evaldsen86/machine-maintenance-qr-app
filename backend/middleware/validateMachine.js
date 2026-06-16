@@ -1,5 +1,13 @@
 const validateMachine = (req, res, next) => {
   const { name, model, serialNumber } = req.body;
+  const isPartialUpdate = req.method === 'PATCH';
+
+  if (isPartialUpdate) {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      return res.status(400).json({ message: 'At least one field is required for update' });
+    }
+    return next();
+  }
 
   if (!name) {
     return res.status(400).json({ message: 'Machine name is required' });

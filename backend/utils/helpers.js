@@ -6,8 +6,12 @@ exports.formatDate = (date) => {
 // Calculate next maintenance date based on frequency
 exports.calculateNextMaintenance = (lastMaintenance, frequency) => {
   const lastDate = new Date(lastMaintenance);
-  const nextDate = new Date(lastDate);
-  nextDate.setMonth(nextDate.getMonth() + frequency);
+  const nextDate = new Date(Date.UTC(
+    lastDate.getUTCFullYear(),
+    lastDate.getUTCMonth(),
+    lastDate.getUTCDate()
+  ));
+  nextDate.setUTCMonth(nextDate.getUTCMonth() + frequency);
   return nextDate.toISOString();
 };
 
