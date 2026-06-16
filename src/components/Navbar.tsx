@@ -30,7 +30,8 @@ import {
   FileText,
   GraduationCap,
   Package,
-  Archive
+  Archive,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -39,6 +40,11 @@ const canAccessInventory = (role: string | undefined) =>
 
 const canAccessInvoices = (role: string | undefined) =>
   role === 'admin' || role === 'leader' || role === 'lagermand';
+
+const canAccessTimeRegistration = (role: string | undefined) =>
+  role === 'admin' || role === 'leader' || role === 'mechanic' ||
+  role === 'technician' || role === 'blacksmith' || role === 'driver' ||
+  role === 'lagermand';
 import { useIsMobile } from '@/hooks/use-mobile';
 import QRScanner from './QRScanner';
 
@@ -132,6 +138,21 @@ const Navbar: React.FC = () => {
                       Scan QR-kode
                     </button>
                   </SheetClose>
+                  {canAccessTimeRegistration(user?.role) && (
+                    <SheetClose asChild>
+                      <Link 
+                        to="/tidsregistrering" 
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm ${
+                          isActive('/tidsregistrering') 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'hover:bg-secondary'
+                        }`}
+                      >
+                        <Clock className="h-4 w-4" />
+                        Tidsregistrering
+                      </Link>
+                    </SheetClose>
+                  )}
                   {canAccessInventory(user?.role) && (
                     <SheetClose asChild>
                       <Link 
@@ -252,6 +273,19 @@ const Navbar: React.FC = () => {
                   <QrCode className="h-4 w-4 mr-1" />
                   Scan QR
                 </Button>
+                {canAccessTimeRegistration(user?.role) && (
+                  <Link 
+                    to="/tidsregistrering" 
+                    className={`text-sm font-medium transition-colors hover:text-primary ${
+                      isActive('/tidsregistrering') ? 'text-primary' : 'text-muted-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Tidsregistrering
+                    </div>
+                  </Link>
+                )}
                 {canAccessInventory(user?.role) && (
                   <Link 
                     to="/inventory" 

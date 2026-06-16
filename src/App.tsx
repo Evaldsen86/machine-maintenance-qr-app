@@ -16,6 +16,7 @@ import Elearning from "./pages/Elearning";
 import Inventory from "./pages/Inventory";
 import Invoices from "./pages/Invoices";
 import Archive from "./pages/Archive";
+import TimeRegistration from "./pages/TimeRegistration";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 
@@ -120,6 +121,11 @@ const AppRoutes = () => {
       <Route path="/arkiv" element={
         <ProtectedRoute>
           <Archive />
+        </ProtectedRoute>
+      } />
+      <Route path="/tidsregistrering" element={
+        <ProtectedRoute>
+          <TimeRegistration />
         </ProtectedRoute>
       } />
       <Route path="/settings" element={

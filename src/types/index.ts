@@ -293,6 +293,27 @@ export interface TimeEntry {
   approvedBy?: string;
   approvedAt?: string;
   notes?: string;
+  archived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+}
+
+export type TimeEntryPeriod = 'week' | 'biweekly' | 'month';
+
+export interface EmployeeTimeStats {
+  userId: string;
+  userName: string;
+  role: string;
+  totalMinutes: number;
+  approvedMinutes: number;
+  pendingMinutes: number;
+  rejectedMinutes: number;
+  entryCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  approvalRate: number;
+  avgMinutesPerDay: number;
+  machineBreakdown: { machineId: string; machineName: string; minutes: number }[];
 }
 
 export interface Part {

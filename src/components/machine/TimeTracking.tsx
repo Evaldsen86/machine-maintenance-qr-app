@@ -7,6 +7,14 @@ import { toast } from "@/components/ui/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { TimeEntry, EquipmentType, Part } from '@/types';
 import { formatDateTime, formatDuration } from '@/utils/dateUtils';
+import { Link } from 'react-router-dom';
+import {
+  getStatusLabel,
+  getStatusVariant,
+  toLocalDateValue,
+  toLocalTimeValue,
+  toISOFromLocal,
+} from '@/utils/timeEntryUtils';
 import { Play, Square, Edit, Trash2, Check, X, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -278,26 +286,6 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     toast({ title: "Tid afvist", description: "Tidsregistreringen er afvist." });
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active': return 'I gang';
-      case 'completed': return 'Afventer godkendelse';
-      case 'approved': return 'Godkendt';
-      case 'rejected': return 'Afvist';
-      default: return status;
-    }
-  };
-
-  const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    switch (status) {
-      case 'active': return 'secondary';
-      case 'completed': return 'outline';
-      case 'approved': return 'default';
-      case 'rejected': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
   const saveTimeEntries = (entries: TimeEntry[]) => {
     try {
       localStorage.setItem(`time_entries_${machineId}`, JSON.stringify(entries));
@@ -330,40 +318,17 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     return isLeaderOrAdmin && entry.status === 'completed';
   };
 
-  const toLocalDateValue = (isoString: string) => {
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const toLocalTimeValue = (isoString: string) => {
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) return '';
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  const toISOFromLocal = (dateValue: string, timeValue: string) => {
-    if (!dateValue || !timeValue) return undefined;
-    const [year, month, day] = dateValue.split('-').map(Number);
-    const [hours, minutes] = timeValue.split(':').map(Number);
-    if (!year || !month || !day || Number.isNaN(hours) || Number.isNaN(minutes)) return undefined;
-    const localDate = new Date(year, month - 1, day, hours, minutes);
-    if (Number.isNaN(localDate.getTime())) return undefined;
-    return localDate.toISOString();
-  };
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Tidsregistrering</CardTitle>
-        <CardDescription>
-          Registrer arbejdstid på {equipmentType === 'crane' ? 'kran' : equipmentType === 'winch' ? 'spil' : 'lastbil'}. 
-          Medarbejdere kan rette egne timer; leder og administrator kan rette og godkende alle.
+        <CardDescription className="flex flex-col gap-2">
+          <span>
+            Registrer arbejdstid på {equipmentType === 'crane' ? 'kran' : equipmentType === 'winch' ? 'spil' : 'lastbil'}.
+          </span>
+          <Link to="/tidsregistrering" className="text-primary hover:underline text-sm font-medium">
+            Gå til samlet tidsregistrering →
+          </Link>
         </CardDescription>
       </CardHeader>
       
@@ -513,7 +478,8 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
             <h3 className="font-medium">Tidsregistreringer</h3>
             <div className="space-y-2">
               {timeEntries
-                .filter(entry => entry.status !== 'active')
+                .filter(entry => entry.status !== 'active' && !entry.archived)
+                .slice(0, 5)
                 .map(entry => (
                   <div 
                     key={entry.id}
@@ -595,6 +561,11 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
                   </div>
                 ))}
             </div>
+            {timeEntries.filter(e => e.status !== 'active' && !e.archived).length > 5 && (
+              <Link to="/tidsregistrering" className="text-sm text-primary hover:underline block text-center pt-2">
+                Se alle tidsregistreringer ({timeEntries.filter(e => e.status !== 'active' && !e.archived).length})
+              </Link>
+            )}
           </div>
         )}
       </CardContent>
