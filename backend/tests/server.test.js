@@ -69,9 +69,9 @@ describe('Server Configuration', () => {
   });
 
   it('should use morgan for logging', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
     await request(app).get('/api/machines');
-    expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(writeSpy).toHaveBeenCalled();
+    writeSpy.mockRestore();
   });
 }); 

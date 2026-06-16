@@ -31,13 +31,13 @@ describe('Helper Functions', () => {
     it('should format currency in DKK', () => {
       const amount = 1000;
       const formattedAmount = formatCurrency(amount);
-      expect(formattedAmount).toBe('1.000,00 kr.');
+      expect(formattedAmount.replace(/\u00A0/g, ' ')).toBe('1.000,00 kr.');
     });
 
     it('should handle decimal amounts', () => {
       const amount = 1000.50;
       const formattedAmount = formatCurrency(amount);
-      expect(formattedAmount).toBe('1.000,50 kr.');
+      expect(formattedAmount.replace(/\u00A0/g, ' ')).toBe('1.000,50 kr.');
     });
   });
 

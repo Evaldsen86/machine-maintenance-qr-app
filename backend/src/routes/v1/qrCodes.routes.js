@@ -70,12 +70,17 @@ router.post(
       throw new ApiError(400, "At least one lookup field is required");
     }
 
+    const or = [];
+    if (qrToken) or.push({ qrToken });
+    if (publicSlug) or.push({ publicSlug });
+    if (payloadHash) or.push({ payloadHash });
+
     const item = await prisma.qRCode.findFirst({
       where: withTenantScope(
         {
           deletedAt: null,
           status: "active",
-          OR: [{ qrToken }, { publicSlug }, { payloadHash }],
+          OR: or,
         },
         req
       ),

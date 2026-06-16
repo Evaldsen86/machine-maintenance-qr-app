@@ -134,6 +134,10 @@ cd backend
 npm run prisma:migrate:dev -- --name phase6a_init
 ```
 
+Note: the Prisma schema uses `gen_random_uuid()` for UUID defaults. If your Postgres instance
+does not have `pgcrypto` enabled, you may need to enable it before/within the first migration:
+`CREATE EXTENSION IF NOT EXISTS pgcrypto;`
+
 ### Apply migrations (deployment)
 ```bash
 cd backend
@@ -152,6 +156,18 @@ Seed reads:
 - `SEED_ADMIN_EMAIL`
 - `SEED_ADMIN_PASSWORD`
 - `SEED_ADMIN_NAME`
+
+---
+
+## Tests (new Phase 6A API integration)
+
+New integration test:
+- `backend/tests/phase6a_api.test.js`
+
+These tests require PostgreSQL with Phase 6A migrations applied.
+
+By default, the tests are skipped unless:
+- `RUN_PHASE6A_DB_TESTS=true`
 
 ---
 
