@@ -1,0 +1,132 @@
+#
+# Self-hosting skeleton for Machine Maintenance QR / Maskiina.gl
+# ---------------------------------------------------------------
+# This file is documentation scaffolding for future Docker/production hardening.
+# It assumes you will add production Dockerfiles and (optionally) MinIO + nginx config later.
+#
+# After creating backend/Dockerfile and a frontend Dockerfile, you can run:
+#   docker compose up -d
+#
+# NOTE: No application business logic was changed.
+#
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: maskiina-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Optional: expose only for debugging during setup
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Optional object storage for documents/images.
+  # This is recommended for production-like behavior; you can also implement
+  # local disk storage later by updating backend STORAGE_TYPE.
+  minio:
+    image: minio/minio:RELEASE.2024-01-19T23-00-00Z
+    container_name: maskiina-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      # Optional: expose console during setup
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    # TODO (Phase 3/4): Add backend production Dockerfile at backend/Dockerfile
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: maskiina-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${BACKEND_PORT}
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Auth
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN}
+
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN}
+
+      # File storage
+      STORAGE_TYPE: ${STORAGE_TYPE}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_PORT: ${MINIO_PORT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      # Optional: expose only via nginx later
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    volumes:
+      # Local disk storage fallback
+      - maskiina_uploads:${UPLOAD_DIR}
+
+  frontend:
+    # TODO (Phase 3): Add a production Dockerfile for the React SPA.
+    # Because this repository currently keeps frontend code in the root `src/`,
+    # create a root Dockerfile that builds the Vite app and serves static output.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maskiina-frontend
+    restart: unless-stopped
+    environment:
+      # For Vite builds:
+      VITE_API_URL: ${VITE_API_URL}
+    depends_on:
+      - backend
+
+  nginx:
+    # TODO (Phase 3): Add nginx config at docker/nginx.conf (or adjust mount path).
+    image: nginx:alpine
+    container_name: maskiina-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Placeholder nginx config; create docker/nginx.conf later
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # TLS certs live on the host
+      - ./docker/certs:/etc/nginx/certs:ro
+
+volumes:
+  postgres_data:
+  minio_data:
+  maskiina_uploads:
+
