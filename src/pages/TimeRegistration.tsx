@@ -7,15 +7,7 @@ import TimeEntryManager from '@/components/timetracking/TimeEntryManager';
 import EmployeeTimeDashboard from '@/components/timetracking/EmployeeTimeDashboard';
 import TimeEntryArchive from '@/components/timetracking/TimeEntryArchive';
 import { loadAllTimeEntries } from '@/utils/timeEntryUtils';
-
-const canAccessTimeRegistration = (role: string | undefined) =>
-  role === 'admin' ||
-  role === 'leader' ||
-  role === 'mechanic' ||
-  role === 'technician' ||
-  role === 'blacksmith' ||
-  role === 'driver' ||
-  role === 'lagermand';
+import { canRegisterTime } from '@/utils/rolePermissions';
 
 const TimeRegistration: React.FC = () => {
   const { user } = useAuth();
@@ -32,7 +24,7 @@ const TimeRegistration: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, refreshKey]);
 
-  if (!user || !canAccessTimeRegistration(user.role)) {
+  if (!user || !canRegisterTime(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
 

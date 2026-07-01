@@ -30,6 +30,11 @@ import InvoiceGenerator from '@/components/invoice/InvoiceGenerator';
 import InvoicePreview from '@/components/invoice/InvoicePreview';
 import { useInvoices } from '@/hooks/useInvoices';
 import PartsManager from '@/components/machine/PartsManager';
+import { useInventory } from '@/hooks/useInventory';
+import {
+  applyInventoryQuantityChanges,
+  diffPartInventoryUsage,
+} from '@/utils/inventoryPartUsage';
 import {
   addAssigneeToTask,
   formatTaskAssignees,
@@ -52,6 +57,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
 }) => {
   const { user, hasPermission } = useAuth();
   const { addInvoice } = useInvoices();
+  const { changeQuantity } = useInventory();
   const [isWorking, setIsWorking] = useState(false);
   const [currentTimeEntry, setCurrentTimeEntry] = useState<TimeEntry | null>(null);
   const [activeTimeEntries, setActiveTimeEntries] = useState<TimeEntry[]>([]);
@@ -165,7 +171,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
     });
   };
 
-  const stopWorking = () => {
+  const stopWorking = async () => {
     if (!currentTimeEntry) return;
 
     const endTime = new Date();
@@ -179,6 +185,21 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
       status: 'completed',
       partsUsed: partsUsed
     };
+
+    try {
+      await applyInventoryQuantityChanges(
+        diffPartInventoryUsage([], partsUsed),
+        changeQuantity
+      );
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lagerfejl',
+        description: 'Kunne ikke opdatere lagerbeholdning for reservedele.',
+      });
+      return;
+    }
 
     setCurrentTimeEntry(null);
     setIsWorking(false);
@@ -495,6 +516,7 @@ const TaskWorkflow: React.FC<TaskWorkflowProps> = ({
               <PartsManager
                 parts={partsUsed}
                 onPartsChange={setPartsUsed}
+                machineId={machine.id}
               />
             )}
           </div>

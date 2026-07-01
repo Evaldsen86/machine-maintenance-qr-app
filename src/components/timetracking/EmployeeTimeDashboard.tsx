@@ -28,7 +28,7 @@ interface EmployeeTimeDashboardProps {
   entries: TimeEntryWithMachine[];
 }
 
-const WORKER_ROLES = ['mechanic', 'technician', 'blacksmith', 'driver', 'lagermand'];
+const WORKER_ROLES = ['mechanic', 'technician', 'blacksmith', 'lagermand'];
 
 const getRoleName = (role: string): string => {
   const names: Record<string, string> = {

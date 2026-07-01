@@ -34,17 +34,13 @@ import {
   Clock
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { canRegisterTime } from '@/utils/rolePermissions';
 
 const canAccessInventory = (role: string | undefined) =>
   role === 'admin' || role === 'leader' || role === 'lagermand';
 
 const canAccessInvoices = (role: string | undefined) =>
   role === 'admin' || role === 'leader' || role === 'lagermand';
-
-const canAccessTimeRegistration = (role: string | undefined) =>
-  role === 'admin' || role === 'leader' || role === 'mechanic' ||
-  role === 'technician' || role === 'blacksmith' || role === 'driver' ||
-  role === 'lagermand';
 import { useIsMobile } from '@/hooks/use-mobile';
 import QRScanner from './QRScanner';
 
@@ -138,7 +134,7 @@ const Navbar: React.FC = () => {
                       Scan QR-kode
                     </button>
                   </SheetClose>
-                  {canAccessTimeRegistration(user?.role) && (
+                  {canRegisterTime(user?.role) && (
                     <SheetClose asChild>
                       <Link 
                         to="/tidsregistrering" 
@@ -273,7 +269,7 @@ const Navbar: React.FC = () => {
                   <QrCode className="h-4 w-4 mr-1" />
                   Scan QR
                 </Button>
-                {canAccessTimeRegistration(user?.role) && (
+                {canRegisterTime(user?.role) && (
                   <Link 
                     to="/tidsregistrering" 
                     className={`text-sm font-medium transition-colors hover:text-primary ${

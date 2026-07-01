@@ -216,6 +216,7 @@ export const useInventory = () => {
 
   const decreaseQuantity = useCallback(
     async (inventoryPartId: string, amount: number, sale?: InventorySaleMeta) => {
+      if (amount <= 0) return;
       if (useIndexedDb) {
         const part = await invDb.getPartById(inventoryPartId);
         if (!part) return;
@@ -235,6 +236,30 @@ export const useInventory = () => {
     [useIndexedDb, parts, updatePart, recordSaleLine]
   );
 
+  /** Positiv delta trækker fra lager; negativ delta lægger tilbage. */
+  const changeQuantity = useCallback(
+    async (inventoryPartId: string, delta: number) => {
+      if (delta === 0) return;
+      if (delta > 0) {
+        await decreaseQuantity(inventoryPartId, delta);
+        return;
+      }
+      const amount = Math.abs(delta);
+      if (useIndexedDb) {
+        const part = await invDb.getPartById(inventoryPartId);
+        if (!part) return;
+        const updated = { ...part, quantity: part.quantity + amount };
+        await invDb.putPart(updated);
+        setParts(prev => prev.map(p => p.id === inventoryPartId ? updated : p));
+      } else {
+        const part = parts.find(p => p.id === inventoryPartId);
+        if (!part) return;
+        updatePart(inventoryPartId, { quantity: part.quantity + amount });
+      }
+    },
+    [useIndexedDb, parts, updatePart, decreaseQuantity]
+  );
+
   return {
     parts,
     saleLines,
@@ -249,6 +274,7 @@ export const useInventory = () => {
     refreshFromDb,
     searchPartsInDb,
     decreaseQuantity,
+    changeQuantity,
     useIndexedDb,
   };
 };

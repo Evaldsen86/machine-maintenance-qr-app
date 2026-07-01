@@ -20,6 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import PartsManager from './PartsManager';
+import { useInventory } from '@/hooks/useInventory';
+import {
+  applyInventoryQuantityChanges,
+  diffPartInventoryUsage,
+} from '@/utils/inventoryPartUsage';
 
 interface TimeTrackingProps {
   machineId: string;
@@ -35,6 +40,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
   onTimeEntryDelete
 }) => {
   const { user, hasPermission } = useAuth();
+  const { changeQuantity } = useInventory();
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -100,7 +106,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     saveTimeEntries([newEntry, ...timeEntries]);
   };
 
-  const stopTimeEntry = () => {
+  const stopTimeEntry = async () => {
     if (!activeEntry) return;
 
     const endTime = new Date();
@@ -116,6 +122,21 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       notes,
       partsUsed
     };
+
+    try {
+      await applyInventoryQuantityChanges(
+        diffPartInventoryUsage([], partsUsed),
+        changeQuantity
+      );
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lagerfejl',
+        description: 'Kunne ikke opdatere lagerbeholdning for reservedele.',
+      });
+      return;
+    }
 
     setActiveEntry(null);
     setTimeEntries(prev => prev.map(entry => 
@@ -147,7 +168,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     setIsEditing(true);
   };
 
-  const saveTimeEntry = () => {
+  const saveTimeEntry = async () => {
     if (!activeEntry) return;
 
     let updatedStartTime = activeEntry.startTime;
@@ -207,7 +228,22 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       status: 'completed'
     };
 
-    setTimeEntries(prev => prev.map(entry => 
+    try {
+      await applyInventoryQuantityChanges(
+        diffPartInventoryUsage(activeEntry.partsUsed, partsUsed),
+        changeQuantity
+      );
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lagerfejl',
+        description: 'Kunne ikke opdatere lagerbeholdning for reservedele.',
+      });
+      return;
+    }
+
+    setTimeEntries(prev => prev.map(entry =>
       entry.id === activeEntry.id ? updatedEntry : entry
     ));
     saveTimeEntries(timeEntries.map(entry => 
@@ -239,8 +275,26 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!entryToDelete) return;
+
+    const entry = timeEntries.find((e) => e.id === entryToDelete);
+    if (entry?.partsUsed?.length) {
+      try {
+        await applyInventoryQuantityChanges(
+          diffPartInventoryUsage(entry.partsUsed, []),
+          changeQuantity
+        );
+      } catch (error) {
+        console.error('Error restoring inventory:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Lagerfejl',
+          description: 'Kunne ikke tilbageføre reservedele til lageret.',
+        });
+        return;
+      }
+    }
 
     setTimeEntries(prev => prev.filter(entry => entry.id !== entryToDelete));
     saveTimeEntries(timeEntries.filter(entry => entry.id !== entryToDelete));
@@ -300,7 +354,13 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
   };
 
   const isLeaderOrAdmin = hasPermission('admin') || hasPermission('leader');
-  const canStartTime = hasPermission('admin') || hasPermission('leader') || hasPermission('mechanic') || hasPermission('technician') || hasPermission('blacksmith') || hasPermission('driver') || hasPermission('lagermand');
+  const canStartTime =
+    hasPermission('admin') ||
+    hasPermission('leader') ||
+    hasPermission('mechanic') ||
+    hasPermission('technician') ||
+    hasPermission('blacksmith') ||
+    hasPermission('lagermand');
 
   const canEditEntry = (entry: TimeEntry) => {
     if (!user) return false;
@@ -383,6 +443,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
             <PartsManager
               parts={partsUsed}
               onPartsChange={setPartsUsed}
+              machineId={machineId}
             />
           </div>
         )}
@@ -448,6 +509,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
             <PartsManager
               parts={partsUsed}
               onPartsChange={setPartsUsed}
+              machineId={machineId}
             />
 
             <div className="flex gap-2">

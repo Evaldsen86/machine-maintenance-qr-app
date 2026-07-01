@@ -539,7 +539,7 @@ const Profile = () => {
                 )}
 
                 {/* Payroll Section - Show for employees */}
-                {['mechanic','technician','blacksmith','driver','admin'].includes(user.role) && (
+                {['mechanic','technician','blacksmith','admin','leader','lagermand'].includes(user.role) && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center">

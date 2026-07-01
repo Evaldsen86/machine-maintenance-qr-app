@@ -318,6 +318,8 @@ export interface EmployeeTimeStats {
 
 export interface Part {
   id: string;
+  /** Kobling til lagerpost når reservedelen er valgt fra lageret */
+  inventoryPartId?: string;
   name: string;
   partNumber: string;
   quantity: number;
