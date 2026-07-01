@@ -14,6 +14,7 @@ import {
   toLocalDateValue,
   toLocalTimeValue,
   toISOFromLocal,
+  loadTimeEntriesForMachine,
 } from '@/utils/timeEntryUtils';
 import { Play, Square, Edit, Trash2, Check, X, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import { useInventory } from '@/hooks/useInventory';
 import {
   applyInventoryQuantityChanges,
   diffPartInventoryUsage,
+  restoreInventoryForDeletedTimeEntry,
 } from '@/utils/inventoryPartUsage';
 
 interface TimeTrackingProps {
@@ -54,31 +56,51 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
   const [editEndDate, setEditEndDate] = useState('');
   const [editEndClock, setEditEndClock] = useState('');
 
+  const persistTimeEntries = (mutator: (prev: TimeEntry[]) => TimeEntry[]) => {
+    setTimeEntries((prev) => {
+      const next = mutator(prev);
+      try {
+        localStorage.setItem(`time_entries_${machineId}`, JSON.stringify(next));
+      } catch (error) {
+        console.error('Error saving time entries:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Fejl ved gemning',
+          description: 'Kunne ikke gemme tidsregistreringer.',
+        });
+      }
+      return next;
+    });
+  };
+
   // Load time entries from localStorage
   useEffect(() => {
     const loadTimeEntries = () => {
       try {
-        const storedEntries = localStorage.getItem(`time_entries_${machineId}`);
-        if (storedEntries) {
-          const entries = JSON.parse(storedEntries);
-          setTimeEntries(entries);
-          
-          // Find active entry if any
-          const active = entries.find((entry: TimeEntry) => entry.status === 'active');
-          if (active) {
-            setActiveEntry(active);
-            setDescription(active.description);
-            setNotes(active.notes || '');
-            setPartsUsed(active.partsUsed || []);
-          }
+        const entries = loadTimeEntriesForMachine(machineId);
+        setTimeEntries(entries);
+
+        const active = user
+          ? entries.find(
+              (entry: TimeEntry) => entry.status === 'active' && entry.userId === user.id
+            )
+          : undefined;
+
+        if (active) {
+          setActiveEntry(active);
+          setDescription(active.description);
+          setNotes(active.notes || '');
+          setPartsUsed(active.partsUsed || []);
+        } else {
+          setActiveEntry(null);
         }
       } catch (error) {
-        console.error("Error loading time entries:", error);
+        console.error('Error loading time entries:', error);
       }
     };
-    
+
     loadTimeEntries();
-  }, [machineId]);
+  }, [machineId, user?.id]);
 
   const startTimeEntry = () => {
     if (!user) {
@@ -102,8 +124,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     };
 
     setActiveEntry(newEntry);
-    setTimeEntries(prev => [newEntry, ...prev]);
-    saveTimeEntries([newEntry, ...timeEntries]);
+    persistTimeEntries((prev) => [newEntry, ...prev]);
   };
 
   const stopTimeEntry = async () => {
@@ -139,12 +160,9 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     }
 
     setActiveEntry(null);
-    setTimeEntries(prev => prev.map(entry => 
-      entry.id === activeEntry.id ? updatedEntry : entry
-    ));
-    saveTimeEntries(timeEntries.map(entry => 
-      entry.id === activeEntry.id ? updatedEntry : entry
-    ));
+    persistTimeEntries((prev) =>
+      prev.map((entry) => (entry.id === activeEntry.id ? updatedEntry : entry))
+    );
 
     if (onTimeEntryUpdate) {
       onTimeEntryUpdate(updatedEntry);
@@ -243,12 +261,9 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       return;
     }
 
-    setTimeEntries(prev => prev.map(entry =>
-      entry.id === activeEntry.id ? updatedEntry : entry
-    ));
-    saveTimeEntries(timeEntries.map(entry => 
-      entry.id === activeEntry.id ? updatedEntry : entry
-    ));
+    persistTimeEntries((prev) =>
+      prev.map((entry) => (entry.id === activeEntry.id ? updatedEntry : entry))
+    );
 
     if (onTimeEntryUpdate) {
       onTimeEntryUpdate(updatedEntry);
@@ -279,12 +294,9 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
     if (!entryToDelete) return;
 
     const entry = timeEntries.find((e) => e.id === entryToDelete);
-    if (entry?.partsUsed?.length) {
+    if (entry) {
       try {
-        await applyInventoryQuantityChanges(
-          diffPartInventoryUsage(entry.partsUsed, []),
-          changeQuantity
-        );
+        await restoreInventoryForDeletedTimeEntry(entry, changeQuantity);
       } catch (error) {
         console.error('Error restoring inventory:', error);
         toast({
@@ -296,8 +308,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       }
     }
 
-    setTimeEntries(prev => prev.filter(entry => entry.id !== entryToDelete));
-    saveTimeEntries(timeEntries.filter(entry => entry.id !== entryToDelete));
+    persistTimeEntries((prev) => prev.filter((entry) => entry.id !== entryToDelete));
 
     if (onTimeEntryDelete) {
       onTimeEntryDelete(entryToDelete);
@@ -320,8 +331,9 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       approvedBy: user.name,
       approvedAt: new Date().toISOString(),
     };
-    setTimeEntries(prev => prev.map(e => e.id === entry.id ? updated : e));
-    saveTimeEntries(timeEntries.map(e => e.id === entry.id ? updated : e));
+    persistTimeEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? updated : e))
+    );
     if (onTimeEntryUpdate) onTimeEntryUpdate(updated);
     toast({ title: "Tid godkendt", description: "Tidsregistreringen er godkendt." });
   };
@@ -334,23 +346,11 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({
       approvedBy: user.name,
       approvedAt: new Date().toISOString(),
     };
-    setTimeEntries(prev => prev.map(e => e.id === entry.id ? updated : e));
-    saveTimeEntries(timeEntries.map(e => e.id === entry.id ? updated : e));
+    persistTimeEntries((prev) =>
+      prev.map((e) => (e.id === entry.id ? updated : e))
+    );
     if (onTimeEntryUpdate) onTimeEntryUpdate(updated);
     toast({ title: "Tid afvist", description: "Tidsregistreringen er afvist." });
-  };
-
-  const saveTimeEntries = (entries: TimeEntry[]) => {
-    try {
-      localStorage.setItem(`time_entries_${machineId}`, JSON.stringify(entries));
-    } catch (error) {
-      console.error("Error saving time entries:", error);
-      toast({
-        variant: "destructive",
-        title: "Fejl ved gemning",
-        description: "Kunne ikke gemme tidsregistreringer.",
-      });
-    }
   };
 
   const isLeaderOrAdmin = hasPermission('admin') || hasPermission('leader');

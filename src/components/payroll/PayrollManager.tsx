@@ -44,9 +44,19 @@ const PayrollManager: React.FC<PayrollManagerProps> = ({
     const endDate = new Date(parseInt(year), parseInt(month), 0);
 
     const periodEntries = timeEntries.filter(entry => {
+      if (entry.status !== 'approved') return false;
       const entryDate = new Date(entry.startTime);
       return entryDate >= startDate && entryDate <= endDate;
     });
+
+    if (periodEntries.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Ingen godkendte timer',
+        description: 'Der er ingen godkendte tidsregistreringer i den valgte periode.',
+      });
+      return;
+    }
 
     const totalMinutes = periodEntries.reduce((sum, entry) => sum + (entry.duration || 0), 0);
     const regularHours = Math.floor(totalMinutes / 60);
@@ -179,7 +189,7 @@ const PayrollManager: React.FC<PayrollManagerProps> = ({
       <CardHeader>
         <CardTitle>Lønsedler</CardTitle>
         <CardDescription>
-          Generer og administrer lønsedler
+          Generer og administrer lønsedler baseret på godkendte tidsregistreringer
         </CardDescription>
       </CardHeader>
       

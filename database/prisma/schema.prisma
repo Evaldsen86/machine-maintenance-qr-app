@@ -86,6 +86,46 @@ enum AuditAction {
   status_change
   assign
   unassign
+  submit
+  approve
+  reject
+  export
+  archive
+}
+
+enum TimeEntryStatus {
+  draft
+  active
+  submitted
+  approved
+  rejected
+  correction_requested
+  exported_to_payroll
+  invoiced
+  archived
+}
+
+enum TimeEntrySource {
+  timer
+  manual
+}
+
+enum PayrollExportStatus {
+  draft
+  finalized
+  sent
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  void
+}
+
+enum CustomerStatus {
+  active
+  inactive
 }
 
 model Company {
@@ -122,6 +162,13 @@ model Company {
   offers            Offer[]
   offerLines        OfferLine[]
   auditLogs         AuditLog[]
+  customers         Customer[]
+  timeEntries       TimeEntry[]
+  timeEntryParts    TimeEntryPart[]
+  payrollExports    PayrollExport[]
+  payrollExportLines PayrollExportLine[]
+  invoices          Invoice[]
+  invoiceTimeLines  InvoiceTimeLine[]
 
   @@index([status])
   @@index([deletedAt])
@@ -151,6 +198,11 @@ model User {
   offersCreated     Offer[]     @relation("OfferCreatedBy")
   taskAssignees     TaskAssignee[]
   auditLogsAsActor  AuditLog[]  @relation("AuditActorUser")
+  timeEntries       TimeEntry[] @relation("TimeEntryTechnician")
+  timeEntriesApproved TimeEntry[] @relation("TimeEntryApprovedBy")
+  timeEntriesRejected TimeEntry[] @relation("TimeEntryRejectedBy")
+  payrollExports    PayrollExport[]
+  invoicesCreated   Invoice[]   @relation("InvoiceCreatedBy")
 
   @@unique([companyId, email])
   @@index([companyId, status])
@@ -245,6 +297,7 @@ model Machine {
   serviceRecords     ServiceRecord[]
   oilInformation     OilInformation[]
   offers             Offer[]
+  timeEntries        TimeEntry[]
 
   @@unique([companyId, serialNumber])
   @@index([companyId, status])
@@ -333,6 +386,7 @@ model Task {
   assignees        TaskAssignee[]
   maintenanceLinks MaintenanceRecord[] @relation("MaintenanceTask")
   serviceLinks     ServiceRecord[] @relation("ServiceTask")
+  timeEntries      TimeEntry[]
 
   @@index([companyId, machineId])
   @@index([companyId, status])
@@ -460,6 +514,7 @@ model InventoryPart {
 
   company           Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
   offerLines        OfferLine[]
+  timeEntryParts    TimeEntryPart[]
 
   @@unique([companyId, sku])
   @@index([companyId, partNumber])
@@ -493,6 +548,7 @@ model Offer {
   machine          Machine?    @relation(fields: [machineId], references: [id], onDelete: SetNull)
   createdBy        User?       @relation("OfferCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   lines            OfferLine[]
+  timeEntries      TimeEntry[]
 
   @@unique([companyId, offerNumber])
   @@index([companyId, status])
@@ -552,5 +608,222 @@ model AuditLog {
   @@index([companyId, machineId])
   @@index([companyId, taskId])
   @@map("audit_logs")
+}
+
+// --- Time registration (production proposal — see docs/TIME_REGISTRATION_PRODUCTION_DESIGN.md) ---
+
+model Customer {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId    String         @map("company_id") @db.Uuid
+  name         String
+  email        String?
+  phone        String?
+  externalRef  String?        @map("external_ref")
+  status       CustomerStatus @default(active)
+  metadata     Json?
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  timeEntries  TimeEntry[]
+  invoices     Invoice[]
+
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@index([companyId, name])
+  @@map("customers")
+}
+
+model TimeEntry {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId            String           @map("company_id") @db.Uuid
+  userId               String           @map("user_id") @db.Uuid
+  machineId            String?          @map("machine_id") @db.Uuid
+  taskId               String?          @map("task_id") @db.Uuid
+  customerId           String?          @map("customer_id") @db.Uuid
+  offerId              String?          @map("offer_id") @db.Uuid
+  startTime            DateTime         @map("start_time")
+  endTime              DateTime?        @map("end_time")
+  durationMinutes      Int?             @map("duration_minutes")
+  breakMinutes         Int              @default(0) @map("break_minutes")
+  billableMinutes      Int              @default(0) @map("billable_minutes")
+  nonBillableMinutes   Int              @default(0) @map("non_billable_minutes")
+  hourlyRateInternal   Decimal?         @map("hourly_rate_internal") @db.Decimal(12, 2)
+  hourlyRateCustomer   Decimal?         @map("hourly_rate_customer") @db.Decimal(12, 2)
+  description          String           @default("")
+  technicianNotes      String?          @map("technician_notes")
+  leaderNotes          String?          @map("leader_notes")
+  status               TimeEntryStatus  @default(draft)
+  source               TimeEntrySource  @default(timer)
+  equipmentType        String?          @map("equipment_type")
+  submittedAt          DateTime?        @map("submitted_at")
+  approvedByUserId     String?          @map("approved_by_user_id") @db.Uuid
+  approvedAt           DateTime?        @map("approved_at")
+  rejectedByUserId     String?          @map("rejected_by_user_id") @db.Uuid
+  rejectedAt           DateTime?        @map("rejected_at")
+  payrollExportId      String?          @map("payroll_export_id") @db.Uuid
+  invoiceId            String?          @map("invoice_id") @db.Uuid
+  metadata             Json?
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  deletedAt            DateTime?        @map("deleted_at")
+
+  company              Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user                 User             @relation("TimeEntryTechnician", fields: [userId], references: [id], onDelete: Restrict)
+  machine              Machine?         @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  task                 Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  customer             Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  offer                Offer?           @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  approvedBy           User?            @relation("TimeEntryApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  rejectedBy           User?            @relation("TimeEntryRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: SetNull)
+  payrollExport        PayrollExport?   @relation(fields: [payrollExportId], references: [id], onDelete: SetNull)
+  invoice              Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  parts                TimeEntryPart[]
+  payrollExportLines   PayrollExportLine[]
+  invoiceTimeLines     InvoiceTimeLine[]
+
+  @@index([companyId, status])
+  @@index([companyId, userId, status])
+  @@index([companyId, taskId])
+  @@index([companyId, machineId])
+  @@index([companyId, submittedAt])
+  @@index([companyId, payrollExportId])
+  @@index([companyId, invoiceId])
+  @@index([companyId, deletedAt])
+  @@map("time_entries")
+}
+
+model TimeEntryPart {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String         @map("company_id") @db.Uuid
+  timeEntryId      String         @map("time_entry_id") @db.Uuid
+  inventoryPartId  String?        @map("inventory_part_id") @db.Uuid
+  name             String
+  partNumber       String?        @map("part_number")
+  quantity         Decimal        @default(1) @db.Decimal(14, 3)
+  unitPrice        Decimal        @default(0) @map("unit_price") @db.Decimal(14, 2)
+  lineTotal        Decimal        @default(0) @map("line_total") @db.Decimal(14, 2)
+  metadata         Json?
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
+
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  timeEntry        TimeEntry      @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  inventoryPart    InventoryPart? @relation(fields: [inventoryPartId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, timeEntryId])
+  @@index([companyId, inventoryPartId])
+  @@index([companyId, deletedAt])
+  @@map("time_entry_parts")
+}
+
+model PayrollExport {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId          String              @map("company_id") @db.Uuid
+  periodStart        DateTime            @map("period_start") @db.Date
+  periodEnd          DateTime            @map("period_end") @db.Date
+  status             PayrollExportStatus @default(draft)
+  exportedByUserId   String              @map("exported_by_user_id") @db.Uuid
+  exportedAt         DateTime            @default(now()) @map("exported_at")
+  totalMinutes       Int                 @default(0) @map("total_minutes")
+  totalAmount        Decimal             @default(0) @map("total_amount") @db.Decimal(14, 2)
+  filePath           String?             @map("file_path")
+  metadata           Json?
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  deletedAt          DateTime?           @map("deleted_at")
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  exportedBy         User                @relation(fields: [exportedByUserId], references: [id], onDelete: Restrict)
+  lines              PayrollExportLine[]
+  timeEntries        TimeEntry[]
+
+  @@index([companyId, periodStart, periodEnd])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("payroll_exports")
+}
+
+model PayrollExportLine {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String        @map("company_id") @db.Uuid
+  payrollExportId  String        @map("payroll_export_id") @db.Uuid
+  timeEntryId      String        @map("time_entry_id") @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  minutes          Int
+  hourlyRate       Decimal       @map("hourly_rate") @db.Decimal(12, 2)
+  lineAmount       Decimal       @map("line_amount") @db.Decimal(14, 2)
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  payrollExport    PayrollExport @relation(fields: [payrollExportId], references: [id], onDelete: Cascade)
+  timeEntry        TimeEntry     @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
+
+  @@unique([payrollExportId, timeEntryId])
+  @@index([companyId, payrollExportId])
+  @@index([companyId, timeEntryId])
+  @@index([companyId, userId])
+  @@map("payroll_export_lines")
+}
+
+model Invoice {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String        @map("company_id") @db.Uuid
+  customerId       String        @map("customer_id") @db.Uuid
+  createdByUserId  String?       @map("created_by_user_id") @db.Uuid
+  invoiceNumber    String        @map("invoice_number")
+  status           InvoiceStatus @default(draft)
+  issueDate        DateTime      @map("issue_date") @db.Date
+  dueDate          DateTime?     @map("due_date") @db.Date
+  currency         String        @default("DKK")
+  subtotalAmount   Decimal       @default(0) @map("subtotal_amount") @db.Decimal(14, 2)
+  taxAmount        Decimal       @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount      Decimal       @default(0) @map("total_amount") @db.Decimal(14, 2)
+  notes            String?
+  metadata         Json?
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  deletedAt        DateTime?     @map("deleted_at")
+
+  company          Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy        User?         @relation("InvoiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  timeLines        InvoiceTimeLine[]
+  timeEntries      TimeEntry[]
+
+  @@unique([companyId, invoiceNumber])
+  @@index([companyId, customerId])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
+  @@map("invoices")
+}
+
+model InvoiceTimeLine {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  invoiceId        String    @map("invoice_id") @db.Uuid
+  timeEntryId      String    @map("time_entry_id") @db.Uuid
+  lineNumber       Int       @map("line_number")
+  description      String
+  hours            Decimal   @db.Decimal(10, 2)
+  hourlyRate       Decimal   @map("hourly_rate") @db.Decimal(12, 2)
+  lineTotal        Decimal   @map("line_total") @db.Decimal(14, 2)
+  metadata         Json?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  invoice          Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  timeEntry        TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, timeEntryId])
+  @@unique([companyId, invoiceId, lineNumber])
+  @@index([companyId, invoiceId])
+  @@index([companyId, timeEntryId])
+  @@index([companyId, deletedAt])
+  @@map("invoice_time_lines")
 }
 

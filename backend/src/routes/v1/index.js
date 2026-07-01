@@ -5,6 +5,8 @@ const userRoutes = require("./users.routes");
 const roleRoutes = require("./roles.routes");
 const machineRoutes = require("./machines.routes");
 const qrCodesRoutes = require("./qrCodes.routes");
+const timeEntriesRoutes = require("./timeEntries.routes");
+const taskRoutes = require("./tasks.routes");
 
 const router = express.Router();
 
@@ -18,6 +20,8 @@ router.use("/users", userRoutes);
 router.use("/roles", roleRoutes);
 router.use("/machines", machineRoutes);
 router.use("/qr-codes", qrCodesRoutes);
+router.use("/time-entries", timeEntriesRoutes);
+router.use("/tasks", taskRoutes);
 
 module.exports = router;
 

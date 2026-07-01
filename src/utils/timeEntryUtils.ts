@@ -3,6 +3,25 @@ import { mockMachines } from '@/data/mockData';
 
 const TIME_ENTRIES_PREFIX = 'time_entries_';
 
+export const getTimeEntriesStorageKey = (machineId: string): string =>
+  `${TIME_ENTRIES_PREFIX}${machineId}`;
+
+export const loadTimeEntriesForMachine = (machineId: string): TimeEntry[] => {
+  try {
+    return JSON.parse(localStorage.getItem(getTimeEntriesStorageKey(machineId)) || '[]') as TimeEntry[];
+  } catch {
+    return [];
+  }
+};
+
+export const saveTimeEntriesForMachine = (machineId: string, entries: TimeEntry[]): void => {
+  localStorage.setItem(getTimeEntriesStorageKey(machineId), JSON.stringify(entries));
+};
+
+/** Completed/approved/rejected entries may have deducted inventory for partsUsed. */
+export const shouldRestoreInventoryOnDelete = (entry: TimeEntry): boolean =>
+  entry.status !== 'active' && (entry.partsUsed?.some((p) => p.inventoryPartId) ?? false);
+
 export interface TimeEntryWithMachine extends TimeEntry {
   machineName: string;
 }

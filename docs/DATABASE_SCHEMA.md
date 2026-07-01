@@ -67,6 +67,13 @@ Schema file: `database/prisma/schema.prisma`
 | `inventory_parts` | Parts/stock records |
 | `offers` | Offer/quote header |
 | `offer_lines` | Offer line items |
+| `customers` | Customer master for invoicing |
+| `time_entries` | Technician time registration |
+| `time_entry_parts` | Parts used on a time entry |
+| `payroll_exports` | Payroll export batches |
+| `payroll_export_lines` | Time entries included in payroll export |
+| `invoices` | Customer invoice headers |
+| `invoice_time_lines` | Billable time linked to invoices |
 | `audit_logs` | Security and data-change activity trail |
 
 ---

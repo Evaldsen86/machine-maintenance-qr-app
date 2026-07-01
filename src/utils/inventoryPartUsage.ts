@@ -1,4 +1,5 @@
-import { Part } from '@/types';
+import { Part, TimeEntry } from '@/types';
+import { shouldRestoreInventoryOnDelete } from '@/utils/timeEntryUtils';
 
 export type InventoryQuantityChange = {
   inventoryPartId: string;
@@ -44,4 +45,16 @@ export const applyInventoryQuantityChanges = async (
   for (const { inventoryPartId, delta } of changes) {
     await changeQuantity(inventoryPartId, delta);
   }
+};
+
+/** Return reservedele to stock when a completed time entry is deleted. */
+export const restoreInventoryForDeletedTimeEntry = async (
+  entry: TimeEntry,
+  changeQuantity: (inventoryPartId: string, delta: number) => Promise<void>
+) => {
+  if (!shouldRestoreInventoryOnDelete(entry)) return;
+  await applyInventoryQuantityChanges(
+    diffPartInventoryUsage(entry.partsUsed, []),
+    changeQuantity
+  );
 };

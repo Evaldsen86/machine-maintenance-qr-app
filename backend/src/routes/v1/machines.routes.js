@@ -6,7 +6,9 @@ const { requireAuth } = require("../../middleware/auth");
 const { requireTenant, withTenantScope } = require("../../middleware/tenant");
 const { requireAdmin } = require("../../middleware/authorize");
 const { createMachineBodySchema, updateMachineBodySchema, machineIdParamSchema } = require("../../validators/machineSchemas");
+const { historyQuerySchema } = require("../../validators/timeEntrySchemas");
 const { ApiError } = require("../../utils/apiError");
+const timeEntryService = require("../../services/timeEntryService");
 
 const router = express.Router();
 
@@ -20,6 +22,17 @@ router.get(
       orderBy: { createdAt: "desc" },
     });
     res.json({ success: true, data: machines });
+  })
+);
+
+router.get(
+  "/:id/time-entries",
+  validate({ params: machineIdParamSchema, query: historyQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const entries = await timeEntryService.listHistoryForMachine(req.auth, req.params.id, {
+      includeArchived: req.query.includeArchived,
+    });
+    res.json({ success: true, data: entries });
   })
 );
 

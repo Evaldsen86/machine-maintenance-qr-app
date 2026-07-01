@@ -52,6 +52,8 @@ import {
   deleteTimeEntry,
   archiveTimeEntry,
 } from '@/utils/timeEntryUtils';
+import { useInventory } from '@/hooks/useInventory';
+import { restoreInventoryForDeletedTimeEntry } from '@/utils/inventoryPartUsage';
 import TimeEntryEditDialog from './TimeEntryEditDialog';
 
 interface TimeEntryManagerProps {
@@ -63,6 +65,7 @@ type StatusFilter = 'all' | 'completed' | 'approved' | 'rejected';
 
 const TimeEntryManager: React.FC<TimeEntryManagerProps> = ({ entries, onRefresh }) => {
   const { user, hasPermission } = useAuth();
+  const { changeQuantity } = useInventory();
   const isLeaderOrAdmin = hasPermission('admin') || hasPermission('leader');
 
   const [search, setSearch] = useState('');
@@ -159,8 +162,21 @@ const TimeEntryManager: React.FC<TimeEntryManagerProps> = ({ entries, onRefresh 
     toast({ title: 'Arkiveret', description: 'Tidsregistreringen er flyttet til arkiv.' });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
+
+    try {
+      await restoreInventoryForDeletedTimeEntry(deleteTarget, changeQuantity);
+    } catch (error) {
+      console.error('Error restoring inventory:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lagerfejl',
+        description: 'Kunne ikke tilbageføre reservedele til lageret.',
+      });
+      return;
+    }
+
     deleteTimeEntry(deleteTarget.machineId, deleteTarget.id);
     setDeleteTarget(null);
     onRefresh();
